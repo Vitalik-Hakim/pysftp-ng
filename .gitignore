@@ -6,6 +6,8 @@ build/
 dist/
 .venv/
 venv/
+# A library: CI tests dependency ranges, so no lock file is kept
+uv.lock
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
