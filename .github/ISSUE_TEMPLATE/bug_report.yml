@@ -1,0 +1,35 @@
+name: Bug report
+description: Something doesn't work the way pysftp 0.2.9 did, or the way the docs say.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you ran, what you expected, and what happened instead. Paste the full traceback.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Smallest code that shows it
+      render: python
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `python -c "import pysftp, paramiko, sys; print(pysftp.__version__, paramiko.__version__, sys.version)"`
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Client OS and SFTP server
+      placeholder: e.g. Windows 11 → OpenSSH 9.6 on Ubuntu
+  - type: checkboxes
+    id: secret
+    attributes:
+      label: Before you post
+      options:
+        - label: I removed passwords, private keys and hostnames I don't want public.
+          required: true
