@@ -64,6 +64,23 @@ jobs:
       - name: Test
         run: python -m pytest --cov --cov-report=term-missing
 
+  # The one check for branch protection to require, so the rule needn't change
+  # whenever the test matrix does. The pre-release job is allowed to fail.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that lint and every test job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
+
   prerelease:
     name: py3.15 (pre-release) · paramiko latest
     runs-on: ubuntu-latest
