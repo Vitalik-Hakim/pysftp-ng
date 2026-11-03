@@ -47,6 +47,14 @@ Don't install the version with `uv pip install` first: `uv run` resets the envir
 `uv.lock` before it starts, so the tests would run against the paramiko version in `uv.lock`
 instead. The pytest header shows which paramiko version was used.
 
+To run the full matrix (every supported Python with paramiko 3.4.1 and the newest release), plus
+lint and a build check, use [nox](https://nox.thea.codes/). It downloads any Python you don't have:
+
+```bash
+uvx nox              # everything
+uvx nox -s lint      # one session; `uvx nox -l` lists them
+```
+
 ## Style
 
 [ruff](https://docs.astral.sh/ruff/) handles linting and formatting:

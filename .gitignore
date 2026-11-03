@@ -6,6 +6,7 @@ build/
 dist/
 .venv/
 venv/
+.nox/
 # A library: CI tests dependency ranges, so no lock file is kept
 uv.lock
 .pytest_cache/
