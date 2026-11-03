@@ -40,8 +40,12 @@ need Docker or a real server.
 To test against a specific paramiko version:
 
 ```bash
-uv pip install "paramiko==3.4.1" && uv run pytest
+uv run --with "paramiko==3.4.1" pytest
 ```
+
+Don't install the version with `uv pip install` first: `uv run` resets the environment to match
+`uv.lock` before it starts, so the tests would run against the paramiko version in `uv.lock`
+instead. The pytest header shows which paramiko version was used.
 
 ## Style
 
