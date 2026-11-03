@@ -38,9 +38,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         paramiko: ["3.4.1", "latest"]
         include:
+          # actions/setup-python has no Python 3.9 builds for Ubuntu 26.04, which
+          # ubuntu-latest now uses. Ubuntu 24.04 still has them.
+          - { os: ubuntu-24.04, python: "3.9", paramiko: "3.4.1" }
+          - { os: ubuntu-24.04, python: "3.9", paramiko: latest }
           - { os: macos-latest, python: "3.13", paramiko: latest }
           - { os: windows-latest, python: "3.13", paramiko: latest }
     steps:
