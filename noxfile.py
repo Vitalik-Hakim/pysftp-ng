@@ -30,6 +30,13 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session(python="3.13")
+def typecheck(session: nox.Session) -> None:
+    """Check the types in src/ with mypy in strict mode, as CI does."""
+    session.install(".", "mypy", "types-paramiko>=5")
+    session.run("mypy")
+
+
+@nox.session(python="3.13")
 def docs(session: nox.Session) -> None:
     """Build the docs as Read the Docs does, with warnings as errors."""
     session.install("-r", "docs/requirements.txt", ".")
