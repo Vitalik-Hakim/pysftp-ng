@@ -56,4 +56,5 @@ cnopts.hostkeys = None  # unsafe: any machine on the network path can pose as th
 
 Without the check, anyone who can intercept the connection, for example through spoofed DNS or a
 hostile Wi-Fi network, can pose as the server and receive your password and your files. Use it only
-for throwaway test servers. To fix a missing key, add the key instead.
+for throwaway test servers. To fix a missing key, add the key instead; see
+[No hostkey for host ... found](troubleshooting/no-hostkey-for-host.md).

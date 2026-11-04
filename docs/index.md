@@ -26,7 +26,7 @@ with pysftp.Connection("sftp.example.com", username="me", private_key="~/.ssh/id
 ```
 
 The server's host key must be in `~/.ssh/known_hosts`; [Host keys](hostkeys.md) explains why and
-how to add it.
+how to add it. For errors from pysftp 0.2.9, see [Troubleshooting](troubleshooting/index.md).
 
 ```{toctree}
 :hidden:
@@ -36,6 +36,13 @@ migrating
 hostkeys
 authentication
 cookbook
+```
+
+```{toctree}
+:hidden:
+:caption: Troubleshooting
+
+troubleshooting/index
 ```
 
 ```{toctree}
