@@ -37,6 +37,9 @@ pytest
 The tests start a small SFTP server inside the test process (`tests/sftp_server.py`), so you don't
 need Docker or a real server.
 
+CI also measures branch coverage of the package and fails if it drops below 90%. To see it, and the
+lines your change leaves untested, run `uv run pytest --cov --cov-report=term-missing`.
+
 To test against a specific paramiko version:
 
 ```bash
