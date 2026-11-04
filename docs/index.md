@@ -35,6 +35,7 @@ how to add it. For errors from pysftp 0.2.9, see [Troubleshooting](troubleshooti
 migrating
 hostkeys
 authentication
+options
 cookbook
 ```
 

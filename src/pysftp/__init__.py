@@ -108,6 +108,10 @@ class CnOpts:  # pylint:disable=r0903
         TCP connection, the SSH banner, key exchange and authentication.
         ``None`` waits as long as paramiko's own defaults allow (the pysftp
         0.2.9 behaviour). *New in pysftp-ng 0.3.0.*
+    :ivar int keepalive: initial value: 0 - after this many seconds without
+        traffic, send a keepalive packet, so that firewalls and NAT routers
+        don't drop an idle connection. 0 sends none (the pysftp 0.2.9
+        behaviour). *New in pysftp-ng 0.4.0.*
     :ivar paramiko.hostkeys.HostKeys|None hostkeys: HostKeys object to use for
         host key checking. Set to ``None`` to disable host key checking, which
         exposes you to man-in-the-middle attacks.
@@ -123,6 +127,7 @@ class CnOpts:  # pylint:disable=r0903
         self.compression: bool = False
         self.ciphers: list[str] | None = None
         self.timeout: float | None = None
+        self.keepalive: int = 0
         if knownhosts is None:
             knownhosts = known_hosts()
         knownhosts = os.fspath(knownhosts)
@@ -255,6 +260,9 @@ class Connection:  # pylint:disable=r0902,r0904
                 stacklevel=2,
             )
             self._cnopts.ciphers = ciphers
+        keepalive = self._option("keepalive", 0)
+        if keepalive < 0:
+            raise ValueError("cnopts.keepalive must be 0 (off) or a number of seconds")
         # check that we have a hostkey to verify, before touching the network
         self._known_keys: dict[str, paramiko.PKey] | None = None
         if self._cnopts.hostkeys is not None:
@@ -277,6 +285,8 @@ class Connection:  # pylint:disable=r0902,r0904
             self._transport.use_compression(self._cnopts.compression)
             self._start_client(host)
             self._authenticate(password, pkeys)
+            if keepalive:
+                self._transport.set_keepalive(keepalive)
         except BaseException:
             self.close()
             raise
