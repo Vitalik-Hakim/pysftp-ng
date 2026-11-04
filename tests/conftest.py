@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import textwrap
 from collections import namedtuple
 from pathlib import Path
 
@@ -159,6 +160,35 @@ def sftp(connect) -> pysftp.Connection:
 def root(server) -> Path:
     """The directory the default test server serves as "/"."""
     return Path(server.root)
+
+
+def write_relay_script(directory: Path) -> str:
+    """Write a stand-in for `ssh -W` that relays stdin and stdout to host:port,
+    for use as a paramiko.ProxyCommand."""
+    path = directory / "relay.py"
+    path.write_text(
+        textwrap.dedent(
+            """
+            import socket, sys, threading
+            conn = socket.create_connection((sys.argv[1], int(sys.argv[2])))
+            def upstream():
+                while True:
+                    data = sys.stdin.buffer.read1(65536)
+                    if not data:
+                        break
+                    conn.sendall(data)
+                conn.shutdown(socket.SHUT_WR)
+            threading.Thread(target=upstream, daemon=True).start()
+            while True:
+                data = conn.recv(65536)
+                if not data:
+                    break
+                sys.stdout.buffer.write(data)
+                sys.stdout.buffer.flush()
+            """
+        )
+    )
+    return str(path)
 
 
 @pytest.fixture

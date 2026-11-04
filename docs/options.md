@@ -36,3 +36,25 @@ job, and the packets keep them open. The server ignores them. The default, `0`, 
 ```python
 cnopts.keepalive = 30
 ```
+
+## sock
+
+`cnopts.sock` runs the SSH session over a connection you provide instead of a TCP connection to the
+host, for example to reach a server behind a jump host. It takes an already-connected socket or a
+`paramiko.ProxyCommand`. The default, `None`, connects directly. *New in 0.4.0.*
+
+```python
+import paramiko
+
+cnopts = pysftp.CnOpts()
+cnopts.sock = paramiko.ProxyCommand("ssh -W sftp.internal:22 me@jump.example.com")
+with pysftp.Connection("sftp.internal", username="me", password="secret", cnopts=cnopts) as sftp:
+    print(sftp.listdir())
+```
+
+Here `ssh -W` logs in to the jump host with your usual SSH setup and forwards the connection.
+pysftp-ng still checks the host key of `sftp.internal` against `known_hosts`, so the jump host
+can't pose as the server.
+
+The connection closes what you pass in, so use a new socket or `ProxyCommand` for each connection.
+paramiko's `ProxyCommand` doesn't work on Windows; pass a connected socket there.
