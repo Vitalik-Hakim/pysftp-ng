@@ -96,6 +96,21 @@ def test_symlink_argument_order(remote):
     assert remote.readlink("link") == f"{remote.pwd}/target.txt"
 
 
+def test_normalize_and_pwd_follow_symlinks(remote):
+    base = remote.pwd
+    remote.mkdir("real")
+    remote.symlink("real", "linked")
+    assert remote.normalize("linked") == f"{base}/real"
+    with remote.cd("linked"):
+        assert remote.pwd == f"{base}/real"
+
+
+def test_normalize_needs_existing_parents(remote):
+    assert remote.normalize("missing") == f"{remote.pwd}/missing"
+    with pytest.raises(FileNotFoundError):
+        remote.normalize("missing/child")
+
+
 def test_chmod_and_mkdir_read_the_mode_as_octal_digits(remote):
     _write(remote, "f.txt", b"f")
     remote.chmod("f.txt", 600)

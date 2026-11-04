@@ -148,9 +148,28 @@ def test_truncate(sftp, root):
 @needs_symlinks
 def test_symlink_readlink_normalize(sftp, root):
     (root / "target.txt").write_text("t")
+    (root / "dir").mkdir()
     sftp.symlink("target.txt", "/link.txt")
     assert sftp.readlink("/link.txt") == "/target.txt"
     assert sftp.normalize("dir/../target.txt") == "/target.txt"
+
+
+@needs_symlinks
+def test_normalize_and_pwd_follow_symlinks(sftp, root):
+    """Like OpenSSH, the server resolves symlinks when it normalizes a path."""
+    (root / "real").mkdir()
+    sftp.symlink("real", "/linked")
+    assert sftp.normalize("/linked") == "/real"
+    with sftp.cd("/linked"):
+        assert sftp.pwd == "/real"
+
+
+def test_normalize_needs_existing_parents(sftp):
+    """Like OpenSSH, only the last part of the path may be missing.
+    (OpenSSH reports "No such file"; paramiko's server can only say "Failure".)"""
+    assert sftp.normalize("/missing") == "/missing"
+    with pytest.raises(OSError, match="Failure"):
+        sftp.normalize("/missing/child")
 
 
 def test_chdir_and_cd_context(sftp, root):

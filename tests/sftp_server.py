@@ -69,14 +69,29 @@ class RootedSFTP(SFTPServerInterface):
         self.calls = calls if calls is not None else Counter()
 
     # path helpers -------------------------------------------------------
-    def canonicalize(self, path):
+    def _virtual(self, path):
+        """``path`` as an absolute path below the root, normalized lexically."""
         path = path or "."
         if not path.startswith("/"):
             path = "/" + path
         return posixpath.normpath(path).replace("//", "/")
 
     def _real(self, path):
-        return os.path.join(self.root, self.canonicalize(path).lstrip("/"))
+        return os.path.join(self.root, self._virtual(path).lstrip("/"))
+
+    def canonicalize(self, path):
+        """Answer a realpath request the way OpenSSH's sftp-server does: follow
+        symlinks, and fail unless every part of the path but the last exists."""
+        parts = [part for part in (path or ".").split("/") if part]
+        real = os.path.join(self.root, *parts)
+        if parts and not os.path.isdir(os.path.dirname(real)):
+            raise FileNotFoundError(path)  # paramiko replies with "Failure"
+        resolved = os.path.relpath(os.path.realpath(real), os.path.realpath(self.root))
+        if resolved == os.curdir:
+            return "/"
+        if resolved == os.pardir or resolved.startswith(os.pardir + os.sep):
+            raise PermissionError(path)  # it leads outside the served directory
+        return "/" + resolved.replace(os.sep, "/")
 
     # operations -----------------------------------------------------------
     def list_folder(self, path):
