@@ -69,6 +69,18 @@ docker rm -f pysftp-openssh
 
 If an OpenSSH and an in-process result differ, add the case to both suites.
 
+## Docs
+
+The docs in `docs/` are built with Sphinx, mostly from Markdown pages, and published on
+[Read the Docs](https://pysftp-ng.readthedocs.io). Build them the way Read the Docs does, with
+warnings as errors:
+
+```bash
+uvx nox -s docs
+```
+
+The HTML ends up in `docs/_build/html`.
+
 ## Style
 
 [ruff](https://docs.astral.sh/ruff/) handles linting and formatting:
