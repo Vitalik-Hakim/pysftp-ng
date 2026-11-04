@@ -4,6 +4,15 @@ All notable changes are listed here. pysftp-ng follows [Semantic Versioning](htt
 Until 1.0, minor releases may deprecate things but won't remove anything from the pysftp 0.2.9
 API.
 
+## Unreleased
+
+### Fixed
+
+- On Windows, `get_r` and `get_d` skip, with a `RuntimeWarning`, file names from the server that
+  contain a colon, such as `D:x`. `os.path.join` drops the target directory when a name starts
+  with a drive, so a malicious server could make them write files outside it, onto another drive.
+  pysftp 0.2.9 has the same flaw.
+
 ## 0.4.0 (2026-11-04)
 
 ### Fixed

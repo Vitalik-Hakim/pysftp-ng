@@ -49,6 +49,16 @@ def test_unsafe_remote_name(name, seps, unsafe):
     assert _unsafe_remote_name(name, seps) is unsafe
 
 
+@pytest.mark.regression
+def test_drive_names_are_unsafe_on_windows():
+    """On Windows, os.path.join drops the target directory when the next part
+    names a drive, so a server-supplied name such as "D:x" escaped it."""
+    assert ntpath.join("C:\\target", "D:x") == "D:x"
+    assert _unsafe_remote_name("D:x", ("\\", "/"))
+    assert _unsafe_remote_name("d:x", ("\\", "/"))
+    assert not _unsafe_remote_name("D:x", ("/",))  # a legal file name on POSIX
+
+
 def test_st_mode_to_int():
     assert pysftp.st_mode_to_int(S_IFREG | 0o640) == 640
     assert pysftp.st_mode_to_int(S_IFDIR | 0o755) == 755
