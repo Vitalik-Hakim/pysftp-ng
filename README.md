@@ -10,7 +10,7 @@ and Python 3.9 through 3.14.
 
 ## Why this exists
 
-pysftp 0.2.9 came out in July 2016 and is still installed around 11.8 million times a month.
+pysftp 0.2.9 came out in July 2016 and is still installed more than 11 million times a month.
 It no longer works with current dependencies. paramiko 4.0 removed DSA keys, so a fresh
 `pip install pysftp` now fails the moment you import it:
 
