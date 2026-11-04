@@ -78,6 +78,8 @@ Each item below has a test in `tests/`. Tests marked `regression` reproduce bugs
   backslashes from Windows), and they no longer change the process's working directory.
 - **`get_r`.** Works on Windows clients, creates missing local directories, and no longer crashes
   on a broken symlink.
+- **`readlink`.** A relative link target is resolved from the link's own directory. 0.2.9 used the
+  current directory, so links in other directories gave wrong paths.
 - **Speed.** `walktree` sends one listing request per directory instead of one `stat` per entry.
 - **Path traversal.** If a server returns a file name that would land outside the target
   directory, such as `../../.bashrc`, `get_r`, `get_d` and `walktree` skip it with a warning.
@@ -90,7 +92,8 @@ Each item below has a test in `tests/`. Tests marked `regression` reproduce bugs
   `log` and `ciphers` arguments still work and emit a `DeprecationWarning`.
 - Behaviour changes are limited to the fixes above. The [changelog](CHANGELOG.md) lists every one.
 - The test suite runs against Python 3.9–3.14 and paramiko 3.4, 3.5, 4.0 and 5.1. It uses an
-  in-process SFTP server, so no external server is needed.
+  in-process SFTP server, so no external server is needed. In CI, a second suite runs the API
+  against a real OpenSSH server in Docker.
 
 ## Security
 
