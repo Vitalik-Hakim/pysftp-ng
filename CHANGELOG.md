@@ -6,6 +6,14 @@ API.
 
 ## Unreleased
 
+### Documentation
+
+- A documentation site on Read the Docs, https://pysftp-ng.readthedocs.io, with a migration guide,
+  a cookbook, pages on host keys and authentication, and the API reference.
+- A troubleshooting page for each common pysftp 0.2.9 error, titled with the exact message. The
+  README lists them.
+- The package description on PyPI names the DSSKey ImportError that pysftp-ng fixes.
+
 ## 0.3.1 (2026-11-04)
 
 ### Fixed
