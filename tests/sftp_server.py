@@ -21,6 +21,7 @@ from paramiko import (
     AUTH_SUCCESSFUL,
     OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED,
     OPEN_SUCCEEDED,
+    SFTP_FAILURE,
     SFTP_OK,
     SFTPAttributes,
     SFTPHandle,
@@ -146,8 +147,13 @@ class RootedSFTP(SFTPServerInterface):
         return SFTP_OK
 
     def rename(self, oldpath, newpath):
+        old, new = self._real(oldpath), self._real(newpath)
+        # Like OpenSSH, refuse to replace an existing path. os.rename would
+        # replace it on Linux and macOS, and refuse on Windows.
+        if os.path.lexists(old) and os.path.lexists(new):
+            return SFTP_FAILURE
         try:
-            os.rename(self._real(oldpath), self._real(newpath))
+            os.rename(old, new)
         except OSError as exc:
             return _errno(exc)
         return SFTP_OK
