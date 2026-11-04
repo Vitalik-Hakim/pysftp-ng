@@ -29,6 +29,13 @@ def lint(session: nox.Session) -> None:
     session.run("ruff", "format", "--check", ".")
 
 
+@nox.session(python="3.13")
+def docs(session: nox.Session) -> None:
+    """Build the docs as Read the Docs does, with warnings as errors."""
+    session.install("-r", "docs/requirements.txt", ".")
+    session.run("sphinx-build", "-W", "--keep-going", "-b", "html", "docs", "docs/_build/html")
+
+
 @nox.session
 def build(session: nox.Session) -> None:
     """Build the sdist and wheel, check them, and check the wheel holds only pysftp."""

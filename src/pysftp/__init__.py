@@ -113,7 +113,7 @@ class CnOpts:  # pylint:disable=r0903
         exposes you to man-in-the-middle attacks.
     :param filepath|None knownhosts: initial value: None - file to load
         hostkeys. If not specified, uses ~/.ssh/known_hosts
-    :returns: (obj) CnOpts - A connection options object, used for passing
+    :returns: (CnOpts) a connection options object, used for passing
         extended options to the Connection
     :raises HostKeysException:
     """
@@ -200,7 +200,7 @@ class Connection:  # pylint:disable=r0902,r0904
         set in a CnOpts object.
     :param str|None default_path: *Default: None* -
         set a default path upon connection.
-    :returns: (obj) connection to the requested host
+    :returns: (Connection) connection to the requested host
     :raises ConnectionException:
     :raises CredentialException:
     :raises SSHException:
@@ -594,7 +594,7 @@ class Connection:  # pylint:disable=r0902,r0904
             because stat'ing the localfile can/does update it's st_atime)
 
         :returns:
-            (obj) SFTPAttributes containing attributes about the given file
+            (SFTPAttributes) attributes of the remote file
 
         :raises IOError: if remotepath doesn't exist
         :raises OSError: if localpath doesn't exist
@@ -710,7 +710,7 @@ class Connection:  # pylint:disable=r0902,r0904
             size
 
         :returns:
-            (obj) SFTPAttributes containing attributes about the given file
+            (SFTPAttributes) attributes of the remote file
 
         :raises: TypeError, if remotepath not specified, any underlying error
 
@@ -1013,7 +1013,7 @@ class Connection:  # pylint:disable=r0902,r0904
 
         :param str remotepath: path to stat
 
-        :returns: (obj) SFTPAttributes
+        :returns: (SFTPAttributes) attributes of the remote path
 
         """
         self._sftp_connect()
@@ -1025,7 +1025,7 @@ class Connection:  # pylint:disable=r0902,r0904
 
         :param str remotepath: path to stat
 
-        :returns: (obj) SFTPAttributes object
+        :returns: (SFTPAttributes) attributes of the remote path, without following symlinks
 
         """
         self._sftp_connect()
@@ -1067,7 +1067,7 @@ class Connection:  # pylint:disable=r0902,r0904
             mode (Python-style) to open file (always assumed binary)
         :param int bufsize: *Default: -1* - desired buffering
 
-        :returns: (obj) SFTPFile, a handle the remote open file
+        :returns: (SFTPFile) a handle to the open remote file
 
         :raises: IOError, if the file could not be opened.
 
@@ -1210,7 +1210,7 @@ class Connection:  # pylint:disable=r0902,r0904
 
         :params: None
 
-        :returns: (obj) the active SFTPClient object
+        :returns: (SFTPClient) the active paramiko SFTPClient
 
         """
         self._sftp_connect()
@@ -1245,7 +1245,7 @@ class Connection:  # pylint:disable=r0902,r0904
         """return the available security options recognized by paramiko.
 
         :returns:
-            (obj) security preferences of the ssh transport. These are tuples
+            (SecurityOptions) security preferences of the ssh transport. These are tuples
             of acceptable `.ciphers`, `.digests`, `.key_types`, and key
             exchange algorithms `.kex`, listed in order of preference.
 
