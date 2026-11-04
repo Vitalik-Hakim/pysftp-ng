@@ -50,7 +50,7 @@ from pysftp.helpers import (  # part of the public API
     walktree,
 )
 
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 
 __all__ = [
     "AgentKey",
