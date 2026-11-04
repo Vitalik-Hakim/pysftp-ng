@@ -55,6 +55,20 @@ uvx nox              # everything
 uvx nox -s lint      # one session; `uvx nox -l` lists them
 ```
 
+### Tests against a real OpenSSH server
+
+`tests/integration/` runs the same API against OpenSSH, whose behaviour can differ from the
+in-process server. These tests are skipped unless the `PYSFTP_INTEGRATION_*` settings are set.
+With Docker running, a script starts a throwaway server on `127.0.0.1:2222` and prints them:
+
+```bash
+export $(tests/integration/openssh-server.sh)
+uv run pytest tests/integration
+docker rm -f pysftp-openssh
+```
+
+If an OpenSSH and an in-process result differ, add the case to both suites.
+
 ## Style
 
 [ruff](https://docs.astral.sh/ruff/) handles linting and formatting:

@@ -64,12 +64,34 @@ jobs:
       - name: Test
         run: python -m pytest --cov --cov-report=term-missing
 
+  # The same API against a real OpenSSH server in Docker, where its behaviour
+  # can differ from the in-process test server.
+  integration:
+    name: Integration · OpenSSH server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install . pytest cryptography
+      - name: Start the OpenSSH server
+        run: tests/integration/openssh-server.sh >> "$GITHUB_ENV"
+      - name: Test
+        shell: bash # with pipefail, so a pytest failure isn't hidden by tee
+        run: |
+          python -m pytest tests/integration -v | tee "$RUNNER_TEMP/pytest.log"
+          # Fail if the tests were skipped instead of run.
+          grep -q " passed" "$RUNNER_TEMP/pytest.log"
+
   # The one check for branch protection to require, so the rule needn't change
   # whenever the test matrix does. The pre-release job is allowed to fail.
   ci-passed:
     name: CI passed
     if: always()
-    needs: [lint, test]
+    needs: [lint, test, integration]
     runs-on: ubuntu-latest
     steps:
       - name: Check that lint and every test job passed

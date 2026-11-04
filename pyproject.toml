@@ -71,6 +71,7 @@ testpaths = ["tests"]
 addopts = ["-ra", "--strict-markers"]
 markers = [
     "regression: reproduces a bug present in pysftp 0.2.9",
+    "integration: needs a real SSH server; skipped unless PYSFTP_INTEGRATION_* is set",
 ]
 filterwarnings = [
     "error",
