@@ -4,6 +4,14 @@ All notable changes are listed here. pysftp-ng follows [Semantic Versioning](htt
 Until 1.0, minor releases may deprecate things but won't remove anything from the pysftp 0.2.9
 API.
 
+## Unreleased
+
+### Fixed
+
+- A `CnOpts` object without the options added in pysftp-ng, such as a subclass whose `__init__`
+  doesn't call `CnOpts.__init__`, works as it did in pysftp 0.2.9 instead of raising
+  `AttributeError`.
+
 ## 0.3.2 (2026-11-04)
 
 Documentation only: no behaviour changes.

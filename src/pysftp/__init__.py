@@ -281,6 +281,11 @@ class Connection:  # pylint:disable=r0902,r0904
             self.close()
             raise
 
+    def _option(self, name: str, default: Any) -> Any:
+        """Return a CnOpts option, or its default when cnopts doesn't have it, as with
+        a pysftp 0.2.9-style subclass whose __init__ doesn't call CnOpts.__init__."""
+        return getattr(self._cnopts, name, default)
+
     def _set_authentication(
         self,
         password: str | None,
@@ -319,7 +324,7 @@ class Connection:  # pylint:disable=r0902,r0904
 
     def _start_transport(self, host: str, port: int) -> None:
         """start the transport and set the ciphers if specified."""
-        timeout = self._cnopts.timeout
+        timeout = self._option("timeout", None)
         try:
             # Open the socket ourselves (paramiko leaks it when the connect
             # fails) but keep paramiko's error type and message.
@@ -364,7 +369,7 @@ class Connection:  # pylint:disable=r0902,r0904
                 )
             options.key_types = preferred
 
-        transport.start_client(timeout=self._cnopts.timeout)
+        transport.start_client(timeout=self._option("timeout", None))
 
         if known is not None:
             server_key = transport.get_remote_server_key()

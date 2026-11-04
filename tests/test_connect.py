@@ -87,6 +87,14 @@ def test_unknown_host_raises_connectionexception():
     assert "no-such-host.invalid:22" in str(excinfo.value)
 
 
+def test_cnopts_without_newer_attributes_still_works(connect, cnopts):
+    """A CnOpts made the 0.2.9 way, without the options added since, connects as before."""
+    old_style = pysftp.CnOpts.__new__(pysftp.CnOpts)
+    old_style.__dict__.update(log=False, compression=False, ciphers=None, hostkeys=cnopts.hostkeys)
+    with connect(cnopts=old_style) as sftp:
+        assert sftp.listdir() == []
+
+
 def _no_hostkey_cnopts(tmp_path):
     empty = tmp_path / "kh_unused"
     key = paramiko.ECDSAKey.generate()
