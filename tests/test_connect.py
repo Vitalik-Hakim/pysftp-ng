@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import logging
+import re
 import socket
 import sys
 import threading
@@ -17,7 +18,8 @@ from tests.conftest import PASSWORD, USER
 
 
 def test_version():
-    assert pysftp.__version__ == "0.3.0"
+    """__version__ is a valid version string. The release workflow checks it matches the tag."""
+    assert re.fullmatch(r"\d+(\.\d+)+((a|b|rc)\d+)?(\.post\d+)?(\.dev\d+)?", pysftp.__version__)
 
 
 def test_password_login(sftp, root):
