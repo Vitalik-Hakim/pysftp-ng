@@ -154,6 +154,16 @@ def test_symlink_readlink_normalize(sftp, root):
     assert sftp.normalize("dir/../target.txt") == "/target.txt"
 
 
+@pytest.mark.regression
+@needs_symlinks
+def test_readlink_resolves_a_relative_target_from_the_link_directory(sftp, root):
+    """0.2.9 resolved it from the current directory, so other directories got wrong paths."""
+    (root / "sub").mkdir()
+    (root / "sub" / "target.txt").write_text("t")
+    sftp.symlink("target.txt", "/sub/link")
+    assert sftp.readlink("/sub/link") == "/sub/target.txt"
+
+
 @needs_symlinks
 def test_normalize_and_pwd_follow_symlinks(sftp, root):
     """Like OpenSSH, the server resolves symlinks when it normalizes a path."""

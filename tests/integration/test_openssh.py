@@ -96,6 +96,15 @@ def test_symlink_argument_order(remote):
     assert remote.readlink("link") == f"{remote.pwd}/target.txt"
 
 
+@pytest.mark.regression
+def test_readlink_resolves_a_relative_target_from_the_link_directory(remote):
+    """0.2.9 resolved it from the current directory, so other directories got wrong paths."""
+    remote.mkdir("sub")
+    _write(remote, "sub/target.txt", b"t")
+    remote.symlink("target.txt", "sub/link")
+    assert remote.readlink("sub/link") == f"{remote.pwd}/sub/target.txt"
+
+
 def test_normalize_and_pwd_follow_symlinks(remote):
     base = remote.pwd
     remote.mkdir("real")

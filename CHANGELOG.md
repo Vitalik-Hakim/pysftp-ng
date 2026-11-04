@@ -6,6 +6,11 @@ API.
 
 ## 0.3.1 (unreleased)
 
+### Fixed
+
+- `readlink` resolves a relative link target from the directory that holds the link. It used the
+  current remote directory, so for a link in another directory it returned the wrong path.
+
 ## 0.3.0 (2026-11-04)
 
 First release of pysftp-ng, forked from pysftp 0.2.9 (released 2016-07-04).
