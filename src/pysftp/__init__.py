@@ -960,7 +960,11 @@ class Connection:  # pylint:disable=r0902,r0904
 
         """
         self._sftp_connect()
-        return self._sftp.normalize(self._sftp.readlink(remotelink))
+        target = self._sftp.readlink(remotelink)
+        if target and not target.startswith("/"):
+            # A relative target is relative to the directory holding the link.
+            target = posixpath.join(posixpath.dirname(remotelink), target)
+        return self._sftp.normalize(target)
 
     def remove(self, remotefile: str) -> None:
         """remove the file @ remotefile, remotefile may include a path, if no
