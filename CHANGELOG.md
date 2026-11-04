@@ -12,6 +12,11 @@ API.
   doesn't call `CnOpts.__init__`, works as it did in pysftp 0.2.9 instead of raising
   `AttributeError`.
 
+### Added
+
+- `CnOpts.keepalive`: send a keepalive packet after that many seconds without traffic, so that
+  firewalls and NAT routers don't drop an idle connection. Off (`0`) by default.
+
 ## 0.3.2 (2026-11-04)
 
 Documentation only: no behaviour changes.

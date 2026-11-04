@@ -237,6 +237,11 @@ class _Auth(paramiko.ServerInterface):
             return AUTH_SUCCESSFUL
         return AUTH_FAILED
 
+    def check_global_request(self, kind, msg):
+        # Record requests such as keepalives; like OpenSSH, decline them.
+        self.srv.global_requests.append(kind)
+        return False
+
     def check_channel_request(self, kind, chanid):
         if kind == "session":
             return OPEN_SUCCEEDED
@@ -284,6 +289,7 @@ class SFTPTestServer:
         self.authorized_keys = list(authorized_keys)
         self.inject_names = tuple(inject_names)
         self.password_attempts: list[str] = []
+        self.global_requests: list[str] = []
         self.publickey_attempts: list[str] = []
         self.calls: Counter = Counter()
         self._transports: list[paramiko.Transport] = []

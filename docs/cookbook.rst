@@ -111,6 +111,8 @@ Other connection options available through CnOpts:
 * ``.timeout`` - seconds to wait for the connection, the SSH handshake and the login.
   *New in pysftp-ng 0.3.0.*
 
+See :doc:`options` for ``.timeout`` and the other options added in pysftp-ng.
+
 The ``log`` and ``ciphers`` parameters of Connection are deprecated in favour of CnOpts. They
 still work, and won't be removed before pysftp-ng 1.0.
 
