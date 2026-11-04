@@ -179,3 +179,75 @@ def test_a_password_skips_the_agent(server, fake_agent, client_keys, tmp_path):
         assert sftp.listdir() == []
     assert fake_agent.created == []
     assert server.publickey_attempts == []
+
+
+SSH_CONFIG = """\
+Host myalias
+    HostName 127.0.0.1
+    Port {port}
+    User {user}
+    IdentityFile {identity}
+"""
+
+
+def _ssh_config_text(server, client_keys, **overrides) -> str:
+    values = {"port": server.port, "user": USER, "identity": client_keys["ed25519"].path}
+    return SSH_CONFIG.format(**{**values, **overrides})
+
+
+def test_ssh_config_is_off_by_default(cnopts, server, client_keys, fake_home):
+    (fake_home / ".ssh" / "config").write_text(_ssh_config_text(server, client_keys))
+    with pytest.raises(paramiko.SSHException, match="No hostkey for host myalias found"):
+        pysftp.Connection("myalias", cnopts=cnopts)
+
+
+def test_ssh_config_supplies_host_port_user_and_key(cnopts, server, client_keys, fake_home):
+    (fake_home / ".ssh" / "config").write_text(_ssh_config_text(server, client_keys))
+    cnopts.ssh_config = True
+    # The host key is looked up as [127.0.0.1]:port, the HostName, not as myalias.
+    with pysftp.Connection("myalias", cnopts=cnopts) as sftp:
+        assert sftp.listdir() == []
+    assert server.publickey_attempts == ["ssh-ed25519"]
+
+
+def test_ssh_config_from_another_file(cnopts, server, client_keys, fake_home, tmp_path):
+    config = tmp_path / "ssh_config"
+    config.write_text(_ssh_config_text(server, client_keys))
+    cnopts.ssh_config = config
+    with pysftp.Connection("myalias", cnopts=cnopts) as sftp:
+        assert sftp.listdir() == []
+
+
+def test_arguments_override_the_ssh_config(cnopts, server, client_keys, fake_home, tmp_path):
+    config = tmp_path / "ssh_config"
+    config.write_text(_ssh_config_text(server, client_keys, user="nobody"))
+    cnopts.ssh_config = config
+    with pysftp.Connection("myalias", username=USER, password=PASSWORD, cnopts=cnopts) as sftp:
+        assert sftp.listdir() == []
+    assert server.password_attempts == [USER]
+    assert server.publickey_attempts == []
+
+
+def test_ssh_config_proxycommand_is_never_run(cnopts, server, client_keys, fake_home, tmp_path):
+    marker = tmp_path / "proxycommand-ran"
+    config = tmp_path / "ssh_config"
+    command = shlex.join([sys.executable, "-c", f"open({str(marker)!r}, 'w')"])
+    config.write_text(_ssh_config_text(server, client_keys) + f"    ProxyCommand {command}\n")
+    cnopts.ssh_config = config
+    with pysftp.Connection("myalias", cnopts=cnopts) as sftp:
+        assert sftp.listdir() == []
+    assert not marker.exists()
+
+
+def test_a_missing_ssh_config_file_raises(cnopts, tmp_path):
+    cnopts.ssh_config = tmp_path / "no-such-config"
+    with pytest.raises(FileNotFoundError):
+        pysftp.Connection("myalias", cnopts=cnopts)
+
+
+def test_a_missing_default_ssh_config_is_ignored(cnopts, server, fake_home):
+    cnopts.ssh_config = True
+    with pysftp.Connection(
+        "127.0.0.1", port=server.port, username=USER, password=PASSWORD, cnopts=cnopts
+    ) as sftp:
+        assert sftp.listdir() == []

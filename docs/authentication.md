@@ -70,4 +70,6 @@ It loads the ones that exist and offers each to the server in turn, and the firs
 accepts is used. If one of them is encrypted, `private_key_pass` is used as its passphrase. If none
 of the files exist, pysftp-ng raises `CredentialException("No password or key specified.")`.
 
+With `cnopts.ssh_config` on, the config's `IdentityFile` keys replace this list.
+
 pysftp 0.2.9 only looked for `id_rsa` and `id_dsa`.

@@ -86,3 +86,19 @@ def test_allow_agent_with_a_real_ssh_agent(openssh, openssh_connect, fake_home, 
         agent.terminate()
         agent.wait(timeout=10)
         shutil.rmtree(sock_dir, ignore_errors=True)
+
+
+def test_ssh_config_alias(openssh, fake_home, tmp_path):
+    config = tmp_path / "ssh_config"
+    config.write_text(
+        "Host pysftp-alias\n"
+        f"    HostName {openssh.host}\n"
+        f"    Port {openssh.port}\n"
+        f"    User {openssh.user}\n"
+        f"    IdentityFile {openssh.key}\n"
+    )
+    cnopts = pysftp.CnOpts(knownhosts=openssh.known_hosts)
+    cnopts.ssh_config = config
+    # Only the config says where pysftp-alias is, who to log in as and which key to use.
+    with pysftp.Connection("pysftp-alias", cnopts=cnopts) as sftp:
+        assert sftp.pwd.startswith("/")
