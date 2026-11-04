@@ -53,6 +53,9 @@ agent_keys = paramiko.Agent().get_keys()
 pysftp.Connection("sftp.example.com", username="me", private_key=agent_keys[0])
 ```
 
+To offer every key in the agent instead, set `cnopts.allow_agent`; see
+[Connection options](options.md).
+
 ## Default keys
 
 With neither `password` nor `private_key`, pysftp-ng looks for these files in `~/.ssh`, in OpenSSH's

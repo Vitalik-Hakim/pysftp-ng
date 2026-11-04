@@ -6,6 +6,7 @@ import shlex
 import socket
 import sys
 import time
+from typing import ClassVar
 
 import paramiko
 import pytest
@@ -103,3 +104,78 @@ def test_sock_accepts_a_proxycommand(server, tmp_path):
         proxy.process.wait(timeout=10)
         for pipe in (proxy.process.stdin, proxy.process.stdout, proxy.process.stderr):
             pipe.close()
+
+
+class FakeAgent:
+    """Stands in for paramiko.Agent, holding the keys a test gives it."""
+
+    keys: ClassVar[tuple] = ()
+    created: ClassVar[list] = []
+
+    def __init__(self):
+        self.closed = False
+        FakeAgent.created.append(self)
+
+    def get_keys(self):
+        return tuple(FakeAgent.keys)
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.fixture
+def fake_agent(monkeypatch):
+    FakeAgent.keys = ()
+    FakeAgent.created = []
+    monkeypatch.setattr(paramiko, "Agent", FakeAgent)
+    return FakeAgent
+
+
+def _connect_to(srv, tmp_path, **kw):
+    lines = [known_hosts_line(f"[127.0.0.1]:{srv.port}", key) for key in srv.host_keys]
+    cnopts = pysftp.CnOpts(knownhosts=write_known_hosts(tmp_path / "kh_agent", lines))
+    cnopts.allow_agent = kw.pop("allow_agent", True)
+    return pysftp.Connection("127.0.0.1", port=srv.port, username=USER, cnopts=cnopts, **kw)
+
+
+def test_agent_is_not_used_by_default(connect, fake_home, fake_agent, client_keys):
+    fake_agent.keys = (client_keys["ed25519"].pkey,)
+    with pytest.raises(pysftp.CredentialException, match="No password or key specified"):
+        connect(password=None)
+    assert fake_agent.created == []
+
+
+def test_allow_agent_logs_in_with_an_agent_key(
+    server, fake_home, fake_agent, client_keys, tmp_path
+):
+    fake_agent.keys = (client_keys["ed25519"].pkey,)
+    with _connect_to(server, tmp_path) as sftp:
+        assert sftp.listdir() == []
+    assert server.publickey_attempts == ["ssh-ed25519"]
+    assert [agent.closed for agent in fake_agent.created] == [True]
+
+
+def test_agent_keys_come_after_the_given_key(
+    server_factory, fake_home, fake_agent, client_keys, tmp_path
+):
+    srv = server_factory(authorized=["ed25519"])
+    fake_agent.keys = (client_keys["ed25519"].pkey,)
+    with _connect_to(srv, tmp_path, private_key=client_keys["rsa"].path) as sftp:
+        assert sftp.listdir() == []
+    assert srv.publickey_attempts == ["ssh-rsa", "ssh-ed25519"]
+
+
+def test_a_key_is_not_offered_twice(server_factory, fake_home, fake_agent, client_keys, tmp_path):
+    srv = server_factory(authorized=["rsa"])
+    fake_agent.keys = (client_keys["ed25519"].pkey, client_keys["rsa"].pkey)
+    with _connect_to(srv, tmp_path, private_key=client_keys["ed25519"].path) as sftp:
+        assert sftp.listdir() == []
+    assert srv.publickey_attempts == ["ssh-ed25519", "ssh-rsa"]
+
+
+def test_a_password_skips_the_agent(server, fake_agent, client_keys, tmp_path):
+    fake_agent.keys = (client_keys["ed25519"].pkey,)
+    with _connect_to(server, tmp_path, password=PASSWORD) as sftp:
+        assert sftp.listdir() == []
+    assert fake_agent.created == []
+    assert server.publickey_attempts == []
