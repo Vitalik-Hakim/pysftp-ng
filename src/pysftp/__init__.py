@@ -17,7 +17,7 @@ import warnings
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from stat import S_ISDIR, S_ISLNK, S_ISREG
-from typing import IO, Any, Union
+from typing import IO, Any, Union, cast
 
 import paramiko
 from paramiko import (  # re-exported for pysftp 0.2.9 compatibility
@@ -30,7 +30,8 @@ from paramiko import (  # re-exported for pysftp 0.2.9 compatibility
 )
 
 try:  # DSA support was removed in paramiko 4.0; only re-export it where it exists.
-    from paramiko import DSSKey  # noqa: F401
+    # types-paramiko describes paramiko 5, which has no DSSKey.
+    from paramiko import DSSKey  # type: ignore[attr-defined]  # noqa: F401
 except ImportError:  # pragma: no cover - depends on the installed paramiko
     pass
 
@@ -316,12 +317,12 @@ class Connection:  # pylint:disable=r0902,r0904
             self._set_logging()
             # Begin the SSH transport.
             self._start_transport(host, port)
-            self._transport.use_compression(self._cnopts.compression)
+            self._get_transport().use_compression(self._cnopts.compression)
             self._start_client(host)
             self._authenticate(password, pkeys)
             self._close_agent()
             if keepalive:
-                self._transport.set_keepalive(keepalive)
+                self._get_transport().set_keepalive(keepalive)
         except BaseException:
             self.close()
             raise
@@ -427,7 +428,7 @@ class Connection:  # pylint:disable=r0902,r0904
     def _start_client(self, host: str) -> None:
         """Negotiate the SSH session and verify the server's host key before
         any credentials are sent."""
-        transport = self._transport
+        transport = self._get_transport()
         known = self._known_keys
         if known is not None:
             # Only negotiate host key types we can verify. pysftp 0.2.9 pinned
@@ -457,7 +458,7 @@ class Connection:  # pylint:disable=r0902,r0904
 
     def _authenticate(self, password: str | None, pkeys: list[paramiko.PKey]) -> None:
         """Authenticate with the password, or with each key in turn."""
-        transport = self._transport
+        transport = self._get_transport()
         username = self._tconnect["username"]
         if password is not None:
             transport.auth_password(username, password)
@@ -504,13 +505,19 @@ class Connection:  # pylint:disable=r0902,r0904
             self._log_prev_level = lgr.level
             lgr.setLevel(logging.DEBUG)
 
-    def _sftp_connect(self) -> None:
-        """Establish the SFTP connection."""
+    def _get_transport(self) -> paramiko.Transport:
+        """Return the SSH transport. It is None once the connection is closed, and then, as in
+        pysftp 0.2.9, using it raises AttributeError."""
+        return cast(paramiko.Transport, self._transport)
+
+    def _sftp_connect(self) -> paramiko.SFTPClient:
+        """Establish the SFTP connection, if it isn't open yet, and return the client."""
         if not self._sftp_live:
-            self._sftp = paramiko.SFTPClient.from_transport(self._transport)
+            self._sftp = paramiko.SFTPClient.from_transport(self._get_transport())
             if self._default_path is not None:
-                self._sftp.chdir(self._default_path)
+                cast(paramiko.SFTPClient, self._sftp).chdir(self._default_path)
             self._sftp_live = True
+        return cast(paramiko.SFTPClient, self._sftp)
 
     @property
     def pwd(self) -> str:
@@ -519,8 +526,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (str) current working directory
 
         """
-        self._sftp_connect()
-        return self._sftp.normalize(".")
+        sftp = self._sftp_connect()
+        return sftp.normalize(".")
 
     def get(
         self,
@@ -552,13 +559,13 @@ class Connection:  # pylint:disable=r0902,r0904
             localpath = os.path.split(remotepath)[1]
         localpath = os.fspath(localpath)
 
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         if preserve_mtime:
-            sftpattrs = self._sftp.stat(remotepath)
+            sftpattrs = sftp.stat(remotepath)
 
-        self._sftp.get(remotepath, localpath, callback=callback)
+        sftp.get(remotepath, localpath, callback=callback)
         if preserve_mtime:
-            os.utime(localpath, (sftpattrs.st_atime, sftpattrs.st_mtime))
+            os.utime(localpath, (cast(int, sftpattrs.st_atime), cast(int, sftpattrs.st_mtime)))
 
     def get_d(self, remotedir: str, localdir: StrPath, preserve_mtime: bool = False) -> None:
         """get the contents of remotedir and write to locadir. (non-recursive)
@@ -574,10 +581,10 @@ class Connection:  # pylint:disable=r0902,r0904
         skipped with a RuntimeWarning.
         """
         localdir = os.fspath(localdir)
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         with self.cd(remotedir):
-            for sattr in self._sftp.listdir_attr("."):
-                if S_ISREG(sattr.st_mode):
+            for sattr in sftp.listdir_attr("."):
+                if S_ISREG(cast(int, sattr.st_mode)):
                     rname = sattr.filename
                     if _unsafe_remote_name(rname):
                         _warn_unsafe(rname)
@@ -648,8 +655,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: Any exception raised by operations will be passed through.
 
         """
-        self._sftp_connect()
-        return self._sftp.getfo(remotepath, flo, callback=callback)
+        sftp = self._sftp_connect()
+        return sftp.getfo(remotepath, flo, callback=callback)
 
     def put(
         self,
@@ -685,16 +692,16 @@ class Connection:  # pylint:disable=r0902,r0904
         localpath = os.fspath(localpath)
         if not remotepath:
             remotepath = os.path.split(localpath)[1]
-        self._sftp_connect()
+        sftp = self._sftp_connect()
 
         if preserve_mtime:
             local_stat = os.stat(localpath)
             times = (local_stat.st_atime, local_stat.st_mtime)
 
-        sftpattrs = self._sftp.put(localpath, remotepath, callback=callback, confirm=confirm)
+        sftpattrs = sftp.put(localpath, remotepath, callback=callback, confirm=confirm)
         if preserve_mtime:
-            self._sftp.utime(remotepath, times)
-            sftpattrs = self._sftp.stat(remotepath)
+            sftp.utime(remotepath, times)
+            sftpattrs = sftp.stat(remotepath)
 
         return sftpattrs
 
@@ -797,9 +804,9 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: TypeError, if remotepath not specified, any underlying error
 
         """
-        self._sftp_connect()
-        return self._sftp.putfo(
-            flo, remotepath, file_size=file_size, callback=callback, confirm=confirm
+        sftp = self._sftp_connect()
+        return sftp.putfo(
+            flo, cast(str, remotepath), file_size=file_size, callback=callback, confirm=confirm
         )
 
     def execute(self, command: str) -> list[bytes]:
@@ -814,7 +821,7 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: Any exception raised by command will be passed through.
 
         """
-        channel = self._transport.open_session()
+        channel = self._get_transport().open_session()
         try:
             channel.exec_command(command)
             output = channel.makefile("rb", -1).readlines()
@@ -852,8 +859,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: IOError, if path does not exist
 
         """
-        self._sftp_connect()
-        self._sftp.chdir(remotepath)
+        sftp = self._sftp_connect()
+        sftp.chdir(remotepath)
 
     cwd = chdir  # synonym for chdir
 
@@ -870,8 +877,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: IOError, if the file doesn't exist
 
         """
-        self._sftp_connect()
-        self._sftp.chmod(remotepath, mode=int(str(mode), 8))
+        sftp = self._sftp_connect()
+        sftp.chmod(remotepath, mode=int(str(mode), 8))
 
     def chown(self, remotepath: str, uid: int | None = None, gid: int | None = None) -> None:
         """set uid and/or gid on a remotepath, you may specify either or both.
@@ -888,17 +895,17 @@ class Connection:  # pylint:disable=r0902,r0904
             IOError, if you don't have permission or the file doesn't exist
 
         """
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         if uid is None or gid is None:
             if uid is None and gid is None:  # short circuit if no change
                 return
-            rstat = self._sftp.stat(remotepath)
+            rstat = sftp.stat(remotepath)
             if uid is None:
-                uid = rstat.st_uid
+                uid = cast(int, rstat.st_uid)
             if gid is None:
-                gid = rstat.st_gid
+                gid = cast(int, rstat.st_gid)
 
-        self._sftp.chown(remotepath, uid=uid, gid=gid)
+        sftp.chown(remotepath, uid=uid, gid=gid)
 
     def getcwd(self) -> str | None:
         """return the current working directory on the remote. This is a wrapper
@@ -908,8 +915,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (str) the current remote path. None, if not set.
 
         """
-        self._sftp_connect()
-        return self._sftp.getcwd()
+        sftp = self._sftp_connect()
+        return sftp.getcwd()
 
     def listdir(self, remotepath: str = ".") -> list[str]:
         """return a list of files/directories for the given remote path.
@@ -920,8 +927,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (list of str) directory entries, sorted
 
         """
-        self._sftp_connect()
-        return sorted(self._sftp.listdir(remotepath))
+        sftp = self._sftp_connect()
+        return sorted(sftp.listdir(remotepath))
 
     def listdir_attr(self, remotepath: str = ".") -> list[paramiko.SFTPAttributes]:
         """return a list of SFTPAttribute objects of the files/directories for
@@ -938,8 +945,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (list of SFTPAttributes), sorted
 
         """
-        self._sftp_connect()
-        return sorted(self._sftp.listdir_attr(remotepath), key=lambda attr: attr.filename)
+        sftp = self._sftp_connect()
+        return sorted(sftp.listdir_attr(remotepath), key=lambda attr: attr.filename)
 
     def mkdir(self, remotepath: str, mode: int = 777) -> None:
         """Create a directory named remotepath with mode. On some systems,
@@ -953,8 +960,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: None
 
         """
-        self._sftp_connect()
-        self._sftp.mkdir(remotepath, mode=int(str(mode), 8))
+        sftp = self._sftp_connect()
+        sftp.mkdir(remotepath, mode=int(str(mode), 8))
 
     def normalize(self, remotepath: str) -> str:
         """Return the expanded path, w.r.t the server, of a given path.  This
@@ -967,8 +974,8 @@ class Connection:  # pylint:disable=r0902,r0904
 
         :raises: IOError, if remotepath can't be resolved
         """
-        self._sftp_connect()
-        return self._sftp.normalize(remotepath)
+        sftp = self._sftp_connect()
+        return sftp.normalize(remotepath)
 
     def isdir(self, remotepath: str) -> bool:
         """return true, if remotepath is a directory
@@ -978,9 +985,9 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (bool)
 
         """
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         try:
-            result = S_ISDIR(self._sftp.stat(remotepath).st_mode)
+            result = S_ISDIR(cast(int, sftp.stat(remotepath).st_mode))
         except OSError:  # no such file
             result = False
         return result
@@ -993,9 +1000,9 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (bool)
 
         """
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         try:
-            result = S_ISREG(self._sftp.stat(remotepath).st_mode)
+            result = S_ISREG(cast(int, sftp.stat(remotepath).st_mode))
         except OSError:  # no such file
             result = False
         return result
@@ -1041,12 +1048,12 @@ class Connection:  # pylint:disable=r0902,r0904
         :return: (str) absolute path to target
 
         """
-        self._sftp_connect()
-        target = self._sftp.readlink(remotelink)
+        sftp = self._sftp_connect()
+        target = sftp.readlink(remotelink)
         if target and not target.startswith("/"):
             # A relative target is relative to the directory holding the link.
             target = posixpath.join(posixpath.dirname(remotelink), target)
-        return self._sftp.normalize(target)
+        return sftp.normalize(cast(str, target))
 
     def remove(self, remotefile: str) -> None:
         """remove the file @ remotefile, remotefile may include a path, if no
@@ -1059,8 +1066,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: IOError
 
         """
-        self._sftp_connect()
-        self._sftp.remove(remotefile)
+        sftp = self._sftp_connect()
+        sftp.remove(remotefile)
 
     unlink = remove  # synonym for remove
 
@@ -1072,8 +1079,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: None
 
         """
-        self._sftp_connect()
-        self._sftp.rmdir(remotepath)
+        sftp = self._sftp_connect()
+        sftp.rmdir(remotepath)
 
     def rename(self, remote_src: str, remote_dest: str) -> None:
         """rename a file or directory on the remote host.
@@ -1087,8 +1094,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: IOError
 
         """
-        self._sftp_connect()
-        self._sftp.rename(remote_src, remote_dest)
+        sftp = self._sftp_connect()
+        sftp.rename(remote_src, remote_dest)
 
     def stat(self, remotepath: str) -> paramiko.SFTPAttributes:
         """return information about file/directory for the given remote path
@@ -1098,8 +1105,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (SFTPAttributes) attributes of the remote path
 
         """
-        self._sftp_connect()
-        return self._sftp.stat(remotepath)
+        sftp = self._sftp_connect()
+        return sftp.stat(remotepath)
 
     def lstat(self, remotepath: str) -> paramiko.SFTPAttributes:
         """return information about file/directory for the given remote path,
@@ -1110,8 +1117,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (SFTPAttributes) attributes of the remote path, without following symlinks
 
         """
-        self._sftp_connect()
-        return self._sftp.lstat(remotepath)
+        sftp = self._sftp_connect()
+        return sftp.lstat(remotepath)
 
     def close(self) -> None:
         """Closes the connection and cleans up."""
@@ -1156,8 +1163,8 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: IOError, if the file could not be opened.
 
         """
-        self._sftp_connect()
-        return self._sftp.open(remote_file, mode=mode, bufsize=bufsize)
+        sftp = self._sftp_connect()
+        return sftp.open(remote_file, mode=mode, bufsize=bufsize)
 
     def exists(self, remotepath: str) -> bool:
         """Test whether a remotepath exists.
@@ -1167,9 +1174,9 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (bool) True, if remotepath exists, else False
 
         """
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         try:
-            self._sftp.stat(remotepath)
+            sftp.stat(remotepath)
         except OSError:
             return False
         return True
@@ -1183,9 +1190,9 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (bool), True, if lexists, else False
 
         """
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         try:
-            self._sftp.lstat(remotepath)
+            sftp.lstat(remotepath)
         except OSError:
             return False
         return True
@@ -1203,8 +1210,8 @@ class Connection:  # pylint:disable=r0902,r0904
             remote_dest
 
         """
-        self._sftp_connect()
-        self._sftp.symlink(remote_src, remote_dest)
+        sftp = self._sftp_connect()
+        sftp.symlink(remote_src, remote_dest)
 
     def truncate(self, remotepath: str, size: int) -> int:
         """Change the size of the file specified by path. Used to modify the
@@ -1219,9 +1226,9 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises: IOError, if file does not exist
 
         """
-        self._sftp_connect()
-        self._sftp.truncate(remotepath, size)
-        return self._sftp.stat(remotepath).st_size
+        sftp = self._sftp_connect()
+        sftp.truncate(remotepath, size)
+        return cast(int, sftp.stat(remotepath).st_size)
 
     def walktree(
         self,
@@ -1256,7 +1263,7 @@ class Connection:  # pylint:disable=r0902,r0904
         :raises:
 
         """
-        self._sftp_connect()
+        sftp = self._sftp_connect()
         # One listdir_attr round trip per directory, instead of a stat() per
         # entry as in pysftp 0.2.9.
         for attr in self.listdir_attr(remotepath):
@@ -1270,7 +1277,7 @@ class Connection:  # pylint:disable=r0902,r0904
             mode = attr.st_mode
             if mode is None or S_ISLNK(mode):
                 try:
-                    mode = self._sftp.stat(pathname).st_mode
+                    mode = sftp.stat(pathname).st_mode
                 except OSError:  # broken symlink
                     mode = None
             if mode is not None and S_ISDIR(mode):
@@ -1297,8 +1304,7 @@ class Connection:  # pylint:disable=r0902,r0904
         :returns: (SFTPClient) the active paramiko SFTPClient
 
         """
-        self._sftp_connect()
-        return self._sftp
+        return self._sftp_connect()
 
     @property
     def active_ciphers(self) -> tuple[str, str]:
@@ -1309,7 +1315,9 @@ class Connection:  # pylint:disable=r0902,r0904
             remote_cipher)
 
         """
-        return self._transport.local_cipher, self._transport.remote_cipher
+        transport = self._get_transport()
+        # types-paramiko lacks remote_cipher, which paramiko sets along with local_cipher.
+        return transport.local_cipher, transport.remote_cipher  # type: ignore[attr-defined]
 
     @property
     def active_compression(self) -> tuple[str, str]:
@@ -1320,8 +1328,10 @@ class Connection:  # pylint:disable=r0902,r0904
             remote_compression)
 
         """
-        localc = self._transport.local_compression
-        remotec = self._transport.remote_compression
+        transport = self._get_transport()
+        localc = cast(str, transport.local_compression)
+        # types-paramiko lacks remote_compression, which paramiko sets with local_compression.
+        remotec = cast(str, transport.remote_compression)  # type: ignore[attr-defined]
         return localc, remotec
 
     @property
@@ -1335,7 +1345,7 @@ class Connection:  # pylint:disable=r0902,r0904
 
         """
 
-        return self._transport.get_security_options()
+        return self._get_transport().get_security_options()
 
     @property
     def logfile(self) -> bool | str:
@@ -1356,22 +1366,22 @@ class Connection:  # pylint:disable=r0902,r0904
             (float|None) seconds to wait for a pending read/write operation
             before raising socket.timeout, or None for no timeout
         """
-        self._sftp_connect()
-        channel = self._sftp.get_channel()
+        sftp = self._sftp_connect()
+        channel = cast(paramiko.Channel, sftp.get_channel())
 
         return channel.gettimeout()
 
     @timeout.setter
     def timeout(self, val: float | None) -> None:
         """setter for timeout"""
-        self._sftp_connect()
-        channel = self._sftp.get_channel()
+        sftp = self._sftp_connect()
+        channel = cast(paramiko.Channel, sftp.get_channel())
         channel.settimeout(val)
 
     @property
     def remote_server_key(self) -> paramiko.PKey:
         """return the remote server's key"""
-        return self._transport.get_remote_server_key()
+        return self._get_transport().get_remote_server_key()
 
     def __del__(self) -> None:
         """Attempt to clean up if not explicitly closed."""
@@ -1399,17 +1409,20 @@ def _load_private_key(path: StrPath, password: str | None) -> paramiko.PKey:
     path = os.path.expanduser(os.fspath(path))
     secret = password.encode("utf-8") if isinstance(password, str) else password
     try:
-        return paramiko.PKey.from_path(path, secret)
+        # types-paramiko types the password as str, but paramiko hands it to cryptography,
+        # which takes bytes.
+        return paramiko.PKey.from_path(path, secret)  # type: ignore[arg-type]
     except TypeError as exc:  # raised by cryptography when no password was given
         if secret is None:
             raise PasswordRequiredException(f"Private key file is encrypted: {path}") from exc
         raise
     except ValueError as exc:  # wrong password, or not a private key
         raise SSHException(f"Could not load private key {path}: {exc}") from exc
-    except paramiko.UnknownKeyType as exc:
+    # types-paramiko lacks UnknownKeyType, which paramiko exports.
+    except paramiko.UnknownKeyType as exc:  # type: ignore[attr-defined]
         legacy_dss = getattr(paramiko, "DSSKey", None)
         if legacy_dss is not None:  # paramiko < 4.0 can still load DSA keys
-            return legacy_dss.from_private_key_file(path, password)
+            return cast(paramiko.PKey, legacy_dss.from_private_key_file(path, password))
         raise SSHException(f"Unsupported private key type in {path}: {exc}") from exc
 
 

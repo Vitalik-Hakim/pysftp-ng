@@ -86,11 +86,13 @@ The HTML ends up in `docs/_build/html`.
 
 ## Style
 
-[ruff](https://docs.astral.sh/ruff/) handles linting and formatting:
+[ruff](https://docs.astral.sh/ruff/) handles linting and formatting, and [mypy](https://mypy-lang.org/)
+checks the types in `src/` in strict mode (it needs Python 3.10 or newer):
 
 ```bash
 ruff check .
 ruff format .
+mypy
 ```
 
 ## Releases
