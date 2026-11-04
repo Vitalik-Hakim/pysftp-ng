@@ -16,6 +16,9 @@ API.
 
 - `CnOpts.keepalive`: send a keepalive packet after that many seconds without traffic, so that
   firewalls and NAT routers don't drop an idle connection. Off (`0`) by default.
+- `CnOpts.sock`: run the session over a connected socket or a `paramiko.ProxyCommand` instead of
+  a direct TCP connection, for servers behind a jump host. The host key is still checked
+  against `known_hosts` for the host you name. Off (`None`) by default.
 
 ## 0.3.2 (2026-11-04)
 

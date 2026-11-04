@@ -112,6 +112,12 @@ class CnOpts:  # pylint:disable=r0903
         traffic, send a keepalive packet, so that firewalls and NAT routers
         don't drop an idle connection. 0 sends none (the pysftp 0.2.9
         behaviour). *New in pysftp-ng 0.4.0.*
+    :ivar socket|paramiko.ProxyCommand|None sock: initial value: None - an
+        already-connected socket, or a ``paramiko.ProxyCommand``, to run the SSH
+        session over instead of opening a TCP connection to the host, for
+        example to reach a server through a jump host. The host key is still
+        checked for the host and port you pass to Connection. The connection
+        closes it, so it serves one connection only. *New in pysftp-ng 0.4.0.*
     :ivar paramiko.hostkeys.HostKeys|None hostkeys: HostKeys object to use for
         host key checking. Set to ``None`` to disable host key checking, which
         exposes you to man-in-the-middle attacks.
@@ -128,6 +134,7 @@ class CnOpts:  # pylint:disable=r0903
         self.ciphers: list[str] | None = None
         self.timeout: float | None = None
         self.keepalive: int = 0
+        self.sock: Any = None
         if knownhosts is None:
             knownhosts = known_hosts()
         knownhosts = os.fspath(knownhosts)
@@ -335,15 +342,17 @@ class Connection:  # pylint:disable=r0902,r0904
     def _start_transport(self, host: str, port: int) -> None:
         """start the transport and set the ciphers if specified."""
         timeout = self._option("timeout", None)
+        sock = self._option("sock", None)
         try:
-            # Open the socket ourselves (paramiko leaks it when the connect
-            # fails) but keep paramiko's error type and message.
-            try:
-                sock = socket.create_connection((host, port), timeout=timeout)
-            except socket.gaierror:
-                raise
-            except OSError as exc:  # refused, unreachable, timed out
-                raise SSHException(f"Unable to connect to {host}: {exc}") from exc
+            if sock is None:
+                # Open the socket ourselves (paramiko leaks it when the connect
+                # fails) but keep paramiko's error type and message.
+                try:
+                    sock = socket.create_connection((host, port), timeout=timeout)
+                except socket.gaierror:
+                    raise
+                except OSError as exc:  # refused, unreachable, timed out
+                    raise SSHException(f"Unable to connect to {host}: {exc}") from exc
             self._transport = paramiko.Transport(sock)
             if timeout is not None:
                 self._transport.banner_timeout = timeout
