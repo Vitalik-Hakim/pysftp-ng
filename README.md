@@ -71,6 +71,10 @@ with pysftp.Connection(
     print(sftp.listdir())
 ```
 
+pysftp-ng 0.4.0 adds four more options, all off by default: `keepalive`, `sock` for servers behind
+a jump host, `allow_agent` and `ssh_config`. The
+[connection options](https://pysftp-ng.readthedocs.io/en/stable/options.html) page covers each one.
+
 ## What's fixed compared with pysftp 0.2.9
 
 Each item below has a test in `tests/`. Tests marked `regression` reproduce bugs in pysftp 0.2.9.
