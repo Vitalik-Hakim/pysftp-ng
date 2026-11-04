@@ -4,7 +4,9 @@ All notable changes are listed here. pysftp-ng follows [Semantic Versioning](htt
 Until 1.0, minor releases may deprecate things but won't remove anything from the pysftp 0.2.9
 API.
 
-## 0.3.0 (unreleased)
+## 0.3.1 (unreleased)
+
+## 0.3.0 (2026-11-04)
 
 First release of pysftp-ng, forked from pysftp 0.2.9 (released 2016-07-04).
 
