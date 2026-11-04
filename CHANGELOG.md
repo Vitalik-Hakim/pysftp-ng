@@ -19,6 +19,8 @@ API.
 - `CnOpts.sock`: run the session over a connected socket or a `paramiko.ProxyCommand` instead of
   a direct TCP connection, for servers behind a jump host. The host key is still checked
   against `known_hosts` for the host you name. Off (`None`) by default.
+- `CnOpts.allow_agent`: also offer the keys in your ssh-agent, after the key you pass or the
+  default key files. A key is never offered twice. Off (`False`) by default.
 
 ## 0.3.2 (2026-11-04)
 

@@ -118,6 +118,11 @@ class CnOpts:  # pylint:disable=r0903
         example to reach a server through a jump host. The host key is still
         checked for the host and port you pass to Connection. The connection
         closes it, so it serves one connection only. *New in pysftp-ng 0.4.0.*
+    :ivar bool allow_agent: initial value: False - also offer the keys in your
+        ssh-agent, after the key you pass or the default key files. Like every
+        key, they are offered only once the server's host key is verified.
+        False leaves the agent alone (the pysftp 0.2.9 behaviour). *New in
+        pysftp-ng 0.4.0.*
     :ivar paramiko.hostkeys.HostKeys|None hostkeys: HostKeys object to use for
         host key checking. Set to ``None`` to disable host key checking, which
         exposes you to man-in-the-middle attacks.
@@ -135,6 +140,7 @@ class CnOpts:  # pylint:disable=r0903
         self.timeout: float | None = None
         self.keepalive: int = 0
         self.sock: Any = None
+        self.allow_agent: bool = False
         if knownhosts is None:
             knownhosts = known_hosts()
         knownhosts = os.fspath(knownhosts)
@@ -242,6 +248,7 @@ class Connection:  # pylint:disable=r0902,r0904
         self._transport: paramiko.Transport | None = None
         self._log_handlers: list[logging.Handler] = []
         self._log_prev_level: int | None = None
+        self._agent: paramiko.Agent | None = None
         # starting point for transport.connect options
         self._tconnect: dict[str, Any] = {
             "username": username,
@@ -284,14 +291,15 @@ class Connection:  # pylint:disable=r0902,r0904
                 self._known_keys = {key.get_name(): key}
 
         self._set_username()
-        pkeys = self._set_authentication(password, private_key, private_key_pass)
         try:
+            pkeys = self._set_authentication(password, private_key, private_key_pass)
             self._set_logging()
             # Begin the SSH transport.
             self._start_transport(host, port)
             self._transport.use_compression(self._cnopts.compression)
             self._start_client(host)
             self._authenticate(password, pkeys)
+            self._close_agent()
             if keepalive:
                 self._transport.set_keepalive(keepalive)
         except BaseException:
@@ -312,32 +320,44 @@ class Connection:  # pylint:disable=r0902,r0904
         """Work out which keys to offer. A password, if given, is preferred."""
         if password is not None:
             return []
+        keys: list[paramiko.PKey] = []
+        problem: Exception | None = None
         if isinstance(private_key, paramiko.PKey):
             # a paramiko key object, including an AgentKey from the ssh-agent
-            self._tconnect["pkey"] = private_key
-            return [private_key]
-        if private_key:
-            pkey = _load_private_key(private_key, private_key_pass)
-            self._tconnect["pkey"] = pkey
-            return [pkey]
-
-        # No key given: try the default keys that exist, in OpenSSH's order.
-        ssh_dir = os.path.expanduser(os.path.join("~", ".ssh"))
-        paths = [os.path.join(ssh_dir, name) for name in _DEFAULT_KEY_FILES]
-        paths = [pth for pth in paths if os.path.isfile(pth)]
-        if not paths:
-            raise CredentialException("No password or key specified.")
-        keys: list[paramiko.PKey] = []
-        first_error: Exception | None = None
-        for pth in paths:
-            try:
-                keys.append(_load_private_key(pth, private_key_pass))
-            except (SSHException, OSError) as exc:  # encrypted, unsupported, unreadable
-                first_error = first_error or exc
+            keys.append(private_key)
+        elif private_key:
+            keys.append(_load_private_key(private_key, private_key_pass))
+        else:
+            # No key given: try the default keys that exist, in OpenSSH's order.
+            ssh_dir = os.path.expanduser(os.path.join("~", ".ssh"))
+            paths = [os.path.join(ssh_dir, name) for name in _DEFAULT_KEY_FILES]
+            paths = [pth for pth in paths if os.path.isfile(pth)]
+            if not paths:
+                problem = CredentialException("No password or key specified.")
+            for pth in paths:
+                try:
+                    keys.append(_load_private_key(pth, private_key_pass))
+                except (SSHException, OSError) as exc:  # encrypted, unsupported, unreadable
+                    problem = problem or exc
+        if self._option("allow_agent", False):
+            keys.extend(self._agent_keys(keys))
         if not keys:
-            raise first_error or CredentialException("No usable private key found.")
+            raise problem or CredentialException("No usable private key found.")
         self._tconnect["pkey"] = keys[0]
         return keys
+
+    def _agent_keys(self, offered: list[paramiko.PKey]) -> list[paramiko.PKey]:
+        """Return the ssh-agent's keys that aren't in offered already. The agent
+        connection stays open for the login, which needs it to sign."""
+        self._agent = paramiko.Agent()
+        seen = {key.asbytes() for key in offered}
+        return [key for key in self._agent.get_keys() if key.asbytes() not in seen]
+
+    def _close_agent(self) -> None:
+        agent = getattr(self, "_agent", None)
+        if agent is not None:
+            agent.close()
+            self._agent = None
 
     def _start_transport(self, host: str, port: int) -> None:
         """start the transport and set the ciphers if specified."""
@@ -1063,6 +1083,8 @@ class Connection:  # pylint:disable=r0902,r0904
                 self._sftp.close()
             finally:
                 self._sftp_live = False
+        # Close the ssh-agent connection, if a failed login left it open.
+        self._close_agent()
         # Close the SSH Transport.
         transport = getattr(self, "_transport", None)
         if transport is not None:

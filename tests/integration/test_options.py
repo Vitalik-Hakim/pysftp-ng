@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import shlex
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 
 import paramiko
@@ -57,3 +61,28 @@ def test_sock_with_a_proxycommand(openssh, tmp_path):
         proxy.process.wait(timeout=10)
         for pipe in (proxy.process.stdin, proxy.process.stdout, proxy.process.stderr):
             pipe.close()
+
+
+def test_allow_agent_with_a_real_ssh_agent(openssh, openssh_connect, fake_home, monkeypatch):
+    # Unix socket paths have a short length limit, so keep the agent's under /tmp.
+    sock_dir = tempfile.mkdtemp(dir="/tmp")
+    sock = os.path.join(sock_dir, "agent.sock")
+    agent = subprocess.Popen(
+        ["ssh-agent", "-D", "-a", sock], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while not os.path.exists(sock) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        env = {**os.environ, "SSH_AUTH_SOCK": sock}
+        subprocess.run(["ssh-add", openssh.key], env=env, check=True, capture_output=True)
+        monkeypatch.setenv("SSH_AUTH_SOCK", sock)
+        cnopts = pysftp.CnOpts(knownhosts=openssh.known_hosts)
+        cnopts.allow_agent = True
+        # No password, and fake_home has no key files, so only the agent can log in.
+        with openssh_connect(password=None, cnopts=cnopts) as sftp:
+            assert sftp.pwd.startswith("/")
+    finally:
+        agent.terminate()
+        agent.wait(timeout=10)
+        shutil.rmtree(sock_dir, ignore_errors=True)

@@ -58,3 +58,20 @@ can't pose as the server.
 
 The connection closes what you pass in, so use a new socket or `ProxyCommand` for each connection.
 paramiko's `ProxyCommand` doesn't work on Windows; pass a connected socket there.
+
+## allow_agent
+
+`cnopts.allow_agent = True` also offers the keys held by your ssh-agent, after the key you pass or
+the default key files. A key that was already offered isn't offered again. The default, `False`,
+leaves the agent alone. *New in 0.4.0.*
+
+```python
+cnopts = pysftp.CnOpts()
+cnopts.allow_agent = True
+with pysftp.Connection("sftp.example.com", username="me", cnopts=cnopts) as sftp:
+    print(sftp.listdir())
+```
+
+Like every key, agent keys are offered only after the server's host key has been verified. Offering
+a key tells the server you hold it, which is why this is off by default. pysftp-ng closes its
+connection to the agent once the login is done, and never forwards the agent to the server.
