@@ -114,6 +114,16 @@ def test_rename_unlink_stat(sftp, root):
     assert not (root / "b.txt").exists()
 
 
+def test_rename_onto_an_existing_file_fails(sftp, root):
+    """Like OpenSSH, a plain SFTP rename won't replace an existing file."""
+    (root / "old.txt").write_text("old")
+    (root / "new.txt").write_text("new")
+    with pytest.raises(OSError, match="Failure"):
+        sftp.rename("/old.txt", "/new.txt")
+    assert (root / "old.txt").read_text() == "old"
+    assert (root / "new.txt").read_text() == "new"
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows has no POSIX permission bits")
 def test_chmod_uses_octal_digits(sftp, root):
     (root / "m.txt").write_text("m")
