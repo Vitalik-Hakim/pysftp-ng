@@ -29,6 +29,9 @@ name.
 
 Entries hashed by OpenSSH's `HashKnownHosts` option are found the same way.
 
+With `cnopts.ssh_config` on, the lookup uses the `HostName` and `Port` from your SSH config, as
+`ssh` does; see [Connection options](options.md).
+
 When `known_hosts` lists several keys for a host, pysftp-ng only negotiates the key types listed and
 accepts whichever one matches. A key that doesn't match raises `paramiko.BadHostKeyException`.
 

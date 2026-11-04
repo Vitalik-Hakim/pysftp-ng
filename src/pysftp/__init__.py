@@ -123,6 +123,13 @@ class CnOpts:  # pylint:disable=r0903
         key, they are offered only once the server's host key is verified.
         False leaves the agent alone (the pysftp 0.2.9 behaviour). *New in
         pysftp-ng 0.4.0.*
+    :ivar bool|str|None ssh_config: initial value: None - read ``HostName``,
+        ``Port``, ``User`` and ``IdentityFile`` for the host from
+        ``~/.ssh/config`` (True) or from the file at this path. Arguments
+        passed to Connection win; the config's Port applies when port is left
+        at 22, and its IdentityFile keys replace the default key files. Other
+        settings, such as ProxyCommand, aren't used. None reads no config (the
+        pysftp 0.2.9 behaviour). *New in pysftp-ng 0.4.0.*
     :ivar paramiko.hostkeys.HostKeys|None hostkeys: HostKeys object to use for
         host key checking. Set to ``None`` to disable host key checking, which
         exposes you to man-in-the-middle attacks.
@@ -141,6 +148,7 @@ class CnOpts:  # pylint:disable=r0903
         self.keepalive: int = 0
         self.sock: Any = None
         self.allow_agent: bool = False
+        self.ssh_config: bool | StrPath | None = None
         if knownhosts is None:
             knownhosts = known_hosts()
         knownhosts = os.fspath(knownhosts)
@@ -249,6 +257,7 @@ class Connection:  # pylint:disable=r0902,r0904
         self._log_handlers: list[logging.Handler] = []
         self._log_prev_level: int | None = None
         self._agent: paramiko.Agent | None = None
+        self._identity_files: list[str] | None = None
         # starting point for transport.connect options
         self._tconnect: dict[str, Any] = {
             "username": username,
@@ -277,6 +286,17 @@ class Connection:  # pylint:disable=r0902,r0904
         keepalive = self._option("keepalive", 0)
         if keepalive < 0:
             raise ValueError("cnopts.keepalive must be 0 (off) or a number of seconds")
+        # Settings for this host from an ssh config file, if asked for. They change
+        # which host is contacted, so they apply before the host key lookup.
+        config = self._read_ssh_config(host)
+        if config:
+            host = config.get("hostname", host)
+            if port == 22 and "port" in config:
+                port = int(config["port"])
+            if username is None and config.get("user"):
+                self._tconnect["username"] = config["user"]
+            if config.get("identityfile"):
+                self._identity_files = list(config["identityfile"])
         # check that we have a hostkey to verify, before touching the network
         self._known_keys: dict[str, paramiko.PKey] | None = None
         if self._cnopts.hostkeys is not None:
@@ -328,9 +348,13 @@ class Connection:  # pylint:disable=r0902,r0904
         elif private_key:
             keys.append(_load_private_key(private_key, private_key_pass))
         else:
-            # No key given: try the default keys that exist, in OpenSSH's order.
-            ssh_dir = os.path.expanduser(os.path.join("~", ".ssh"))
-            paths = [os.path.join(ssh_dir, name) for name in _DEFAULT_KEY_FILES]
+            # No key given: the ssh config's IdentityFile keys, or else the default
+            # keys, in OpenSSH's order. Files that don't exist are skipped.
+            if self._identity_files is not None:
+                paths = [os.path.expanduser(pth) for pth in self._identity_files]
+            else:
+                ssh_dir = os.path.expanduser(os.path.join("~", ".ssh"))
+                paths = [os.path.join(ssh_dir, name) for name in _DEFAULT_KEY_FILES]
             paths = [pth for pth in paths if os.path.isfile(pth)]
             if not paths:
                 problem = CredentialException("No password or key specified.")
@@ -345,6 +369,20 @@ class Connection:  # pylint:disable=r0902,r0904
             raise problem or CredentialException("No usable private key found.")
         self._tconnect["pkey"] = keys[0]
         return keys
+
+    def _read_ssh_config(self, host: str) -> dict[str, Any]:
+        """Return the settings for host from ~/.ssh/config (cnopts.ssh_config is
+        True) or from the file cnopts.ssh_config names, or {} when it is off."""
+        setting = self._option("ssh_config", None)
+        if setting is None or setting is False:
+            return {}
+        if setting is True:
+            path = os.path.expanduser(os.path.join("~", ".ssh", "config"))
+            if not os.path.isfile(path):
+                return {}  # like ssh, carry on without a config file
+        else:
+            path = os.fspath(setting)
+        return dict(paramiko.SSHConfig.from_path(path).lookup(host))
 
     def _agent_keys(self, offered: list[paramiko.PKey]) -> list[paramiko.PKey]:
         """Return the ssh-agent's keys that aren't in offered already. The agent

@@ -75,3 +75,33 @@ with pysftp.Connection("sftp.example.com", username="me", cnopts=cnopts) as sftp
 Like every key, agent keys are offered only after the server's host key has been verified. Offering
 a key tells the server you hold it, which is why this is off by default. pysftp-ng closes its
 connection to the agent once the login is done, and never forwards the agent to the server.
+
+## ssh_config
+
+`cnopts.ssh_config` reads four settings for the host from an OpenSSH config file: `HostName`,
+`Port`, `User` and `IdentityFile`. Set it to `True` for `~/.ssh/config`, or to the path of another
+file. The default, `None`, reads no config. *New in 0.4.0.*
+
+```text
+Host reports
+    HostName sftp.example.com
+    Port 2222
+    User me
+    IdentityFile ~/.ssh/id_ed25519
+```
+
+```python
+cnopts = pysftp.CnOpts()
+cnopts.ssh_config = True
+with pysftp.Connection("reports", cnopts=cnopts) as sftp:
+    print(sftp.listdir())
+```
+
+- Arguments you pass to `Connection` win. The config's `Port` applies when you leave `port` at 22.
+- When you pass neither a password nor a key, the `IdentityFile` keys replace the default key files.
+- As with `ssh`, the host key is looked up for the `HostName` and port, so here `known_hosts` needs
+  an entry for `[sftp.example.com]:2222`.
+- Other settings, such as `ProxyCommand` and `ProxyJump`, aren't used. For a jump host, see `sock`
+  above.
+- paramiko reads the file and evaluates `Match` blocks as `ssh` does, including `Match exec`, which
+  runs the command it names. Only point this option at a config file you trust.

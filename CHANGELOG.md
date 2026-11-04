@@ -21,6 +21,9 @@ API.
   against `known_hosts` for the host you name. Off (`None`) by default.
 - `CnOpts.allow_agent`: also offer the keys in your ssh-agent, after the key you pass or the
   default key files. A key is never offered twice. Off (`False`) by default.
+- `CnOpts.ssh_config`: read `HostName`, `Port`, `User` and `IdentityFile` for the host from
+  `~/.ssh/config` (`True`) or another file (a path). Arguments passed to `Connection` win. Off
+  (`None`) by default.
 
 ## 0.3.2 (2026-11-04)
 
