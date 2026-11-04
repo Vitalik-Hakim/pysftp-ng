@@ -1431,12 +1431,20 @@ def _unsafe_remote_name(name: str, local_seps: tuple[str, ...] | None = None) ->
     once used as part of a local path.
 
     A malicious server can return names such as ``../../.bashrc`` (or, for a
-    Windows client, ``..\\..\\x``); pysftp 0.2.9 wrote them wherever they
-    pointed.
+    Windows client, ``..\\..\\x`` or ``D:x``); pysftp 0.2.9 wrote them wherever
+    they pointed. On Windows, os.path.join drops the target directory when the
+    next part starts with a drive, and no Windows file name can contain a colon,
+    so any name with one is unsafe there.
     """
     if local_seps is None:
         local_seps = (os.sep, os.altsep) if os.altsep else (os.sep,)
-    return name == ".." or "/" in name or any(sep in name for sep in local_seps)
+    windows = "\\" in local_seps
+    return (
+        name == ".."
+        or "/" in name
+        or any(sep in name for sep in local_seps)
+        or (windows and ":" in name)
+    )
 
 
 def _warn_unsafe(name: str) -> None:

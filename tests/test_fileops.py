@@ -315,6 +315,25 @@ def test_hostile_names_are_skipped(server_factory, tmp_path):
     assert not (tmp_path / "escaped.txt").exists()
 
 
+@pytest.mark.regression
+@pytest.mark.skipif(os.name != "nt", reason="a drive-qualified name only escapes on Windows")
+def test_drive_names_are_skipped_on_windows(server_factory, tmp_path):
+    """On Windows, a malicious server listing "Z:x" made get_r and get_d write to
+    drive Z instead of the target directory."""
+    srv = server_factory(inject_names=["Z:escaped.txt"])
+    (Path(srv.root) / "ok.txt").write_text("ok")
+    out = tmp_path / "out"
+    out.mkdir()
+    with pysftp.Connection(
+        "127.0.0.1", port=srv.port, username="tester", password="secret", cnopts=_no_check()
+    ) as conn:
+        with pytest.warns(RuntimeWarning, match="unsafe file name"):
+            conn.get_r("/", str(out))
+        with pytest.warns(RuntimeWarning, match="unsafe file name"):
+            conn.get_d("/", str(out))
+    assert (out / "ok.txt").read_text() == "ok"
+
+
 def _no_check():
     cnopts = pysftp.CnOpts.__new__(pysftp.CnOpts)
     cnopts.__dict__.update(log=False, compression=False, ciphers=None, timeout=None, hostkeys=None)
