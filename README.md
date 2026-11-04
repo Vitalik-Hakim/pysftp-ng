@@ -3,10 +3,13 @@
 [![CI](https://github.com/Vitalik-Hakim/pysftp-ng/actions/workflows/ci.yml/badge.svg)](https://github.com/Vitalik-Hakim/pysftp-ng/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/pysftp-ng.svg)](https://pypi.org/project/pysftp-ng/)
 [![Python](https://img.shields.io/pypi/pyversions/pysftp-ng.svg)](https://pypi.org/project/pysftp-ng/)
+[![Docs](https://readthedocs.org/projects/pysftp-ng/badge/?version=stable)](https://pysftp-ng.readthedocs.io/en/stable/)
 
 A maintained, drop-in fork of [pysftp](https://pypi.org/project/pysftp/). Your code still says
 `import pysftp` and uses the same API, but it now works with current paramiko (3.4 through 5.x)
 and Python 3.9 through 3.14.
+
+Documentation: [pysftp-ng.readthedocs.io](https://pysftp-ng.readthedocs.io/en/stable/)
 
 ## Why this exists
 
@@ -30,6 +33,20 @@ pip install pysftp-ng
 
 No code changes are needed. In `requirements.txt` or `pyproject.toml`, replace `pysftp` with
 `pysftp-ng`. Don't install both packages, because they provide the same `pysftp` module.
+
+## Troubleshooting pysftp errors
+
+These are the errors pysftp 0.2.9 prints for the problems pysftp-ng fixes. Each links to a page
+with the cause and the fix.
+
+- [`ImportError: cannot import name 'DSSKey' from 'paramiko'`](https://pysftp-ng.readthedocs.io/en/stable/troubleshooting/importerror-dsskey.html)
+- [`AttributeError: 'Connection' object has no attribute '_sftp_live'`](https://pysftp-ng.readthedocs.io/en/stable/troubleshooting/attributeerror-sftp-live.html)
+- [`SSHException: No hostkey for host ... found.`](https://pysftp-ng.readthedocs.io/en/stable/troubleshooting/no-hostkey-for-host.html)
+- [`Incompatible ssh peer (no acceptable host key)`](https://pysftp-ng.readthedocs.io/en/stable/troubleshooting/incompatible-ssh-peer.html)
+- [`SSHException: unpack requires a buffer of 4 bytes`](https://pysftp-ng.readthedocs.io/en/stable/troubleshooting/unpack-requires-a-buffer.html)
+  (Ed25519 or ECDSA key in OpenSSH format)
+- [`SSHException: encountered EC key, expected DSA key`](https://pysftp-ng.readthedocs.io/en/stable/troubleshooting/encountered-ec-key.html)
+  (ECDSA key in PEM format)
 
 ## Usage
 

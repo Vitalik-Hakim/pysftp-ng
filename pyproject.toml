@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pysftp-ng"
 dynamic = ["version"]
-description = "A friendly face on SFTP. Maintained, drop-in fork of pysftp for paramiko 4/5 and current Python."
+description = "Maintained, drop-in fork of pysftp that fixes the DSSKey ImportError on paramiko 4 and 5."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "BSD-3-Clause"
@@ -38,6 +38,7 @@ dependencies = ["paramiko>=3.4"]
 
 [project.urls]
 Homepage = "https://github.com/Vitalik-Hakim/pysftp-ng"
+Documentation = "https://pysftp-ng.readthedocs.io"
 Source = "https://github.com/Vitalik-Hakim/pysftp-ng"
 Issues = "https://github.com/Vitalik-Hakim/pysftp-ng/issues"
 Changelog = "https://github.com/Vitalik-Hakim/pysftp-ng/blob/main/CHANGELOG.md"
