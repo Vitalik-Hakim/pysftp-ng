@@ -9,7 +9,9 @@
 # In GitHub Actions, append the output to "$GITHUB_ENV" instead.
 set -euo pipefail
 
-image="lscr.io/linuxserver/openssh-server:10.3_p1-r1-ls241@sha256:0b46c755aac07057908077f2c7ff14f0ad923970bb6a3a67bcd008e72fa60050"
+# Pinned by digest, so every registry serves the same image. It comes from ghcr.io directly,
+# not through the lscr.io alias, which once turned a CI pull away with a rate limit.
+image="ghcr.io/linuxserver/openssh-server:10.3_p1-r1-ls241@sha256:0b46c755aac07057908077f2c7ff14f0ad923970bb6a3a67bcd008e72fa60050"
 name=pysftp-openssh
 host=127.0.0.1
 port=2222
@@ -18,6 +20,17 @@ dir=$(mktemp -d)
 password=$(openssl rand -hex 16)
 
 ssh-keygen -q -t ed25519 -N "" -C pysftp-integration -f "$dir/id_ed25519"
+# Pull first, trying a few times, since a registry can refuse a pull for a moment. Whoever runs
+# this script reads its output, so nothing from docker may reach stdout.
+for attempt in 1 2 3 4 5; do
+  if docker pull -q "$image" >/dev/null; then
+    break
+  elif [ "$attempt" -eq 5 ]; then
+    echo "Couldn't pull $image" >&2
+    exit 1
+  fi
+  sleep $((attempt * 5))
+done
 docker run -d --rm --name "$name" -p "$host:$port:2222" \
   -e USER_NAME="$user" \
   -e PASSWORD_ACCESS=true \
