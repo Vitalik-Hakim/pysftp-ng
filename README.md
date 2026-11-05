@@ -4,6 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/pysftp-ng.svg)](https://pypi.org/project/pysftp-ng/)
 [![Python](https://img.shields.io/pypi/pyversions/pysftp-ng.svg)](https://pypi.org/project/pysftp-ng/)
 [![Docs](https://readthedocs.org/projects/pysftp-ng/badge/?version=stable)](https://pysftp-ng.readthedocs.io/en/stable/)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Vitalik-Hakim/pysftp-ng/badge)](https://scorecard.dev/viewer/?uri=github.com/Vitalik-Hakim/pysftp-ng)
 
 A maintained, drop-in fork of [pysftp](https://pypi.org/project/pysftp/). Your code still says
 `import pysftp` and uses the same API, but it now works with current paramiko (3.4 through 5.x)
