@@ -17,7 +17,7 @@ PYTHONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 def tests(session: nox.Session, paramiko: str) -> None:
     """Run the test suite against an installed copy of the package, as CI does."""
     spec = "paramiko" if paramiko == "latest" else f"paramiko=={paramiko}"
-    session.install(".", spec, "pytest", "pytest-cov", "cryptography")
+    session.install(".", spec, "pytest", "pytest-cov", "cryptography", "hypothesis")
     session.run("python", "-m", "pytest", *session.posargs)
 
 

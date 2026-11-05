@@ -30,12 +30,16 @@ Or with pip:
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # .venv\Scripts\activate on Windows
-pip install -e . pytest pytest-cov ruff
+pip install -e . pytest pytest-cov hypothesis ruff
 pytest
 ```
 
 The tests start a small SFTP server inside the test process (`tests/sftp_server.py`), so you don't
 need Docker or a real server.
+
+`tests/test_properties.py` uses [Hypothesis](https://hypothesis.readthedocs.io/) to try the path
+helpers on many generated file names. When one of its tests fails, Hypothesis prints the smallest
+failing example it found.
 
 CI also measures branch coverage of the package and fails if it drops below 90%. To see it, and the
 lines your change leaves untested, run `uv run pytest --cov --cov-report=term-missing`.
