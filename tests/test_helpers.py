@@ -64,6 +64,14 @@ def test_st_mode_to_int():
     assert pysftp.st_mode_to_int(S_IFDIR | 0o755) == 755
 
 
+def test_st_mode_to_int_low_permission_bits():
+    # pysftp 0.2.9 returned these; pysftp-ng 0.3.0 to 0.4.1 raised ValueError.
+    assert pysftp.st_mode_to_int(S_IFREG | 0o000) == 0
+    assert pysftp.st_mode_to_int(S_IFREG | 0o007) == 7
+    assert pysftp.st_mode_to_int(S_IFDIR | 0o070) == 70
+    assert pysftp.st_mode_to_int(S_IFDIR | 0o1777) == 777
+
+
 def test_path_advance_and_retreat():
     assert list(pysftp.path_advance("a/b/c", sep="/")) == [
         "a",

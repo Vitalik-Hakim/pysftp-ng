@@ -4,6 +4,14 @@ All notable changes are listed here. pysftp-ng follows [Semantic Versioning](htt
 Until 1.0, minor releases may deprecate things but won't remove anything from the pysftp 0.2.9
 API.
 
+## Unreleased
+
+### Fixed
+
+- `st_mode_to_int` returns `0`, `7` and `70` again for modes such as `000`, `007` and `070`, as
+  pysftp 0.2.9 did. pysftp-ng 0.3.0 to 0.4.1 raised `ValueError` for any mode whose permission
+  bits are below `0o100`.
+
 ## 0.4.1 (2026-11-04)
 
 ### Fixed
