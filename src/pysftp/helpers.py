@@ -7,7 +7,7 @@ import os
 import posixpath
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from stat import S_IMODE, S_ISDIR, S_ISREG
+from stat import S_ISDIR, S_ISREG
 
 
 def known_hosts() -> str:
@@ -26,7 +26,7 @@ def st_mode_to_int(val: int) -> int:
     :returns int: integer representation of octal mode
 
     """
-    return int(str(oct(S_IMODE(val)))[-3:])
+    return int(f"{val & 0o777:o}")
 
 
 class WTCallbacks:
