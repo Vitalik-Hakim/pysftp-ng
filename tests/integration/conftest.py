@@ -34,6 +34,9 @@ class Server:
     password: str
     key: str  # an Ed25519 private key the server accepts
     known_hosts: str  # captured with ssh-keyscan
+    # PYSFTP_INTEGRATION_SERVER_OS=windows: the OpenSSH server that ships with Windows,
+    # which differs from OpenSSH on Linux in the ways the tests note.
+    windows: bool = False
 
 
 @pytest.fixture(scope="session")
@@ -41,7 +44,8 @@ def openssh() -> Server:
     if settings_missing():
         pytest.skip(SKIP_REASON)
     host, port, user, password, key, known_hosts = (os.environ[name] for name in SETTINGS)
-    return Server(host, int(port), user, password, key, known_hosts)
+    windows = os.environ.get("PYSFTP_INTEGRATION_SERVER_OS", "").lower() == "windows"
+    return Server(host, int(port), user, password, key, known_hosts, windows)
 
 
 @pytest.fixture
@@ -81,5 +85,10 @@ def _rmtree(sftp: pysftp.Connection, path: str) -> None:
         if stat.S_ISDIR(entry.st_mode):
             _rmtree(sftp, child)
         else:
-            sftp.remove(child)
+            try:
+                sftp.remove(child)
+            except PermissionError:
+                if not stat.S_ISLNK(entry.st_mode):
+                    raise
+                sftp.rmdir(child)  # Windows' OpenSSH removes a link to a directory this way
     sftp.rmdir(path)

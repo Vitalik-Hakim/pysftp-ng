@@ -31,6 +31,10 @@ def test_keepalive(openssh, openssh_connect):
         assert sftp.pwd.startswith("/")
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="paramiko's ProxyCommand calls select() on a pipe, which Windows doesn't support",
+)
 def test_sock_with_a_proxycommand(openssh, tmp_path):
     # Name the server sftp.invalid, which never resolves, so the session can only run
     # over the ProxyCommand.
@@ -63,6 +67,7 @@ def test_sock_with_a_proxycommand(openssh, tmp_path):
             pipe.close()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="starts a Unix ssh-agent on a Unix socket")
 def test_allow_agent_with_a_real_ssh_agent(openssh, openssh_connect, fake_home, monkeypatch):
     # Unix socket paths have a short length limit, so keep the agent's under /tmp.
     sock_dir = tempfile.mkdtemp(dir="/tmp")

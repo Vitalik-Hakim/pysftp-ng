@@ -105,17 +105,25 @@ def test_readlink_resolves_a_relative_target_from_the_link_directory(remote):
     assert remote.readlink("sub/link") == f"{remote.pwd}/sub/target.txt"
 
 
-def test_normalize_and_pwd_follow_symlinks(remote):
+def test_normalize_and_pwd_follow_symlinks(openssh, remote):
     base = remote.pwd
     remote.mkdir("real")
     remote.symlink("real", "linked")
+    if openssh.windows:
+        # Windows' OpenSSH server doesn't resolve symlinks here.
+        assert remote.normalize("linked") == f"{base}/linked"
+        return
     assert remote.normalize("linked") == f"{base}/real"
     with remote.cd("linked"):
         assert remote.pwd == f"{base}/real"
 
 
-def test_normalize_needs_existing_parents(remote):
+def test_normalize_needs_existing_parents(openssh, remote):
     assert remote.normalize("missing") == f"{remote.pwd}/missing"
+    if openssh.windows:
+        # Windows' OpenSSH server doesn't check that the parents exist.
+        assert remote.normalize("missing/child") == f"{remote.pwd}/missing/child"
+        return
     with pytest.raises(FileNotFoundError):
         remote.normalize("missing/child")
 
@@ -138,13 +146,18 @@ def test_rename_onto_an_existing_file_fails(remote):
     assert _read(remote, "new.txt") == b"new"
 
 
-def test_execute(remote):
+def test_execute(openssh, remote):
+    if openssh.windows:
+        # Windows' OpenSSH server runs commands with cmd.exe.
+        assert remote.execute("echo hello") == [b"hello\r\n"]
+        assert b"cannot find" in remote.execute(r"type C:\no\such\dir\file")[0]
+        return
     assert remote.execute("echo hello") == [b"hello\n"]
     # With nothing on stdout, execute returns what the command wrote to stderr.
     assert b"No such file" in remote.execute("ls /no/such/dir")[0]
 
 
-def test_50_mib_transfer_keeps_every_byte(remote, tmp_path):
+def test_50_mib_transfer_keeps_every_byte(openssh, remote, tmp_path):
     src = tmp_path / "big.bin"
     digest = hashlib.sha256()
     with open(src, "wb") as fobj:
@@ -154,7 +167,15 @@ def test_50_mib_transfer_keeps_every_byte(remote, tmp_path):
             fobj.write(chunk)
     remote.put(str(src), "big.bin")
     assert remote.stat("big.bin").st_size == 50 * MiB
-    on_server = remote.execute(f"sha256sum {remote.pwd}/big.bin")[0].split()[0].decode()
+    if openssh.windows:
+        # remote.pwd is like /C:/Users/name; PowerShell wants C:/Users/name.
+        path = f"{remote.pwd[1:]}/big.bin"
+        command = (
+            f"powershell -NoProfile -Command \"(Get-FileHash -Algorithm SHA256 '{path}').Hash\""
+        )
+    else:
+        command = f"sha256sum {remote.pwd}/big.bin"
+    on_server = remote.execute(command)[0].split()[0].decode().lower()
     assert on_server == digest.hexdigest()
     remote.get("big.bin", str(tmp_path / "back.bin"))
     back = hashlib.sha256((tmp_path / "back.bin").read_bytes()).hexdigest()
