@@ -99,6 +99,35 @@ jobs:
           # Fail if the tests were skipped instead of run.
           grep -q " passed" "$RUNNER_TEMP/pytest.log"
 
+  # The same tests against the OpenSSH server that ships with Windows, from a Windows client.
+  integration-windows:
+    name: Integration · Windows OpenSSH server
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install . pytest cryptography
+      - name: Start the Windows OpenSSH server
+        # The password for the server's test user is made here and masked in the logs, so
+        # the script never has to print it.
+        run: |
+          $password = "Pf-$([guid]::NewGuid().ToString('N'))"
+          "::add-mask::$password"
+          "PYSFTP_INTEGRATION_PASSWORD=$password" >> $env:GITHUB_ENV
+          $env:PYSFTP_INTEGRATION_PASSWORD = $password
+          python tests/integration/windows-openssh-server.py >> $env:GITHUB_ENV
+      - name: Test
+        run: |
+          python -m pytest tests/integration -v | Tee-Object -FilePath "$env:RUNNER_TEMP/pytest.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Fail if the tests were skipped instead of run.
+          if (-not (Select-String -Path "$env:RUNNER_TEMP/pytest.log" -Pattern " passed" -Quiet)) { exit 1 }
+
   # The docs build as Read the Docs builds them: Python 3.13, warnings as errors.
   docs:
     name: Docs
@@ -123,7 +152,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [lint, typecheck, test, integration, docs]
+    needs: [lint, typecheck, test, integration, integration-windows, docs]
     runs-on: ubuntu-latest
     steps:
       - name: Check that lint and every test job passed

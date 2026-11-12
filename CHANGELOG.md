@@ -4,6 +4,16 @@ All notable changes are listed here. pysftp-ng follows [Semantic Versioning](htt
 Until 1.0, minor releases may deprecate things but won't remove anything from the pysftp 0.2.9
 API.
 
+## Unreleased
+
+### Documentation
+
+- The compatibility page lists how the OpenSSH server built into Windows Server 2025 differs from
+  OpenSSH on Linux, including the `AllowGroups` setting that refuses users outside the OpenSSH
+  Users group. CI now runs the real-server tests against it, from a Windows client.
+- The `ssh_config` option's docs warn that paramiko expands every `~` in an `IdentityFile`, so a
+  path with a `~` inside it, such as a Windows short name, points somewhere else.
+
 ## 0.4.2 (2026-11-12)
 
 ### Fixed

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 import socket
 import sys
@@ -251,3 +252,11 @@ def test_a_missing_default_ssh_config_is_ignored(cnopts, server, fake_home):
         "127.0.0.1", port=server.port, username=USER, password=PASSWORD, cnopts=cnopts
     ) as sftp:
         assert sftp.listdir() == []
+
+
+def test_paramiko_expands_every_tilde_in_identityfile():
+    """docs/options.md warns that paramiko expands every ~ in an IdentityFile, where OpenSSH
+    expands only a leading one. If this fails, paramiko has changed: update that warning."""
+    config = paramiko.SSHConfig.from_text("Host alias\n    IdentityFile /keys/a~b/id\n")
+    home = os.path.expanduser("~")
+    assert config.lookup("alias")["identityfile"] == [f"/keys/a{home}b/id"]

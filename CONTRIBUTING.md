@@ -74,6 +74,11 @@ uv run pytest tests/integration
 docker rm -f pysftp-openssh
 ```
 
+CI also runs them against the OpenSSH server built into Windows. On a Windows machine you can throw
+away, as an administrator, set `PYSFTP_INTEGRATION_PASSWORD` to a new random password and run
+`tests/integration/windows-openssh-server.py`: it installs the server, adds a local user and prints
+the other settings.
+
 If an OpenSSH and an in-process result differ, add the case to both suites.
 
 ## Docs

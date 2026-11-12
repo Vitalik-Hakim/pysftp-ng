@@ -99,6 +99,9 @@ with pysftp.Connection("reports", cnopts=cnopts) as sftp:
 
 - Arguments you pass to `Connection` win. The config's `Port` applies when you leave `port` at 22.
 - When you pass neither a password nor a key, the `IdentityFile` keys replace the default key files.
+- paramiko expands every `~` in an `IdentityFile`, where OpenSSH expands only a leading one. A path
+  with a `~` inside it, such as a Windows short name like `C:\Users\JOHNSM~1\.ssh\id_ed25519`, then
+  points somewhere else, so write such paths out in full.
 - As with `ssh`, the host key is looked up for the `HostName` and port, so here `known_hosts` needs
   an entry for `[sftp.example.com]:2222`.
 - Other settings, such as `ProxyCommand` and `ProxyJump`, aren't used. For a jump host, see `sock`
