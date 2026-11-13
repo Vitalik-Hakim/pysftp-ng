@@ -2,9 +2,9 @@
 PYSFTP_INTEGRATION_* settings that point the tests at it.
 
 Run it as an administrator on a throwaway Windows machine, such as a GitHub Actions
-runner: it installs the OpenSSH Server feature, adds a local user and starts sshd. The
-user's password comes from PYSFTP_INTEGRATION_PASSWORD, which the tests read as well, so
-this script never prints it.
+runner: it installs the OpenSSH Server feature, adds a local user, and starts sshd and the
+ssh-agent service. The user's password comes from PYSFTP_INTEGRATION_PASSWORD, which the
+tests read as well, so this script never prints it.
 
     $env:PYSFTP_INTEGRATION_PASSWORD = "<a new random password>"
     python tests/integration/windows-openssh-server.py >> $env:GITHUB_ENV
@@ -90,6 +90,8 @@ def main() -> None:
     for feature in ("OpenSSH.Server~~~~0.0.1.0", "OpenSSH.Client~~~~0.0.1.0"):
         powershell(f"Add-WindowsCapability -Online -Name {feature}")
     run("net", "user", USER, password, "/add", "/y")
+    # The allow_agent test uses the ssh-agent service, which is disabled until it's set up.
+    powershell("Set-Service -Name ssh-agent -StartupType Manual; Start-Service ssh-agent")
 
     # The first start writes sshd_config and the host keys. Then move sshd to PORT, so
     # known_hosts gets [host]:port entries, as with the Linux server, and have it log to
@@ -120,6 +122,14 @@ def main() -> None:
             serialization.NoEncryption(),
         )
     )
+    # Windows' ssh-add refuses a private key whose ACL lets another account use it, and counts
+    # OWNER RIGHTS as one. The key gets that entry from mkdtemp's folder, and removing it takes
+    # both steps: /inheritance:r, so the folder can't hand it back whenever the ACL changes,
+    # and /remove for the copy the key already has. The current user gets an entry, so the
+    # key is theirs to read without an administrator's token.
+    me = subprocess.run(["whoami"], capture_output=True, text=True, check=True).stdout.strip()
+    run("icacls", str(key_path), "/inheritance:r", "/grant:r", f"{me}:F")
+    run("icacls", str(key_path), "/remove", "*S-1-3-4")
     public = key.public_key().public_bytes(
         serialization.Encoding.OpenSSH, serialization.PublicFormat.OpenSSH
     )

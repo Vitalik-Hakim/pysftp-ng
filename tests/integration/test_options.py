@@ -67,8 +67,17 @@ def test_sock_with_a_proxycommand(openssh, tmp_path):
             pipe.close()
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="starts a Unix ssh-agent on a Unix socket")
-def test_allow_agent_with_a_real_ssh_agent(openssh, openssh_connect, fake_home, monkeypatch):
+@pytest.fixture
+def agent_with_key(openssh, monkeypatch, tmp_path):
+    """An ssh-agent holding the server's key: a new ssh-agent on Unix. On Windows, paramiko
+    ignores SSH_AUTH_SOCK and uses the ssh-agent service that comes with Windows' OpenSSH."""
+    if sys.platform == "win32":
+        yield from _windows_agent(openssh, tmp_path)
+    else:
+        yield from _unix_agent(openssh, monkeypatch)
+
+
+def _unix_agent(openssh, monkeypatch):
     # Unix socket paths have a short length limit, so keep the agent's under /tmp.
     sock_dir = tempfile.mkdtemp(dir="/tmp")
     sock = os.path.join(sock_dir, "agent.sock")
@@ -82,15 +91,42 @@ def test_allow_agent_with_a_real_ssh_agent(openssh, openssh_connect, fake_home, 
         env = {**os.environ, "SSH_AUTH_SOCK": sock}
         subprocess.run(["ssh-add", openssh.key], env=env, check=True, capture_output=True)
         monkeypatch.setenv("SSH_AUTH_SOCK", sock)
-        cnopts = pysftp.CnOpts(knownhosts=openssh.known_hosts)
-        cnopts.allow_agent = True
-        # No password, and fake_home has no key files, so only the agent can log in.
-        with openssh_connect(password=None, cnopts=cnopts) as sftp:
-            assert sftp.pwd.startswith("/")
+        yield
     finally:
         agent.terminate()
         agent.wait(timeout=10)
         shutil.rmtree(sock_dir, ignore_errors=True)
+
+
+def _windows_agent(openssh, tmp_path):
+    from paramiko import win_openssh, win_pageant
+
+    if win_pageant.can_talk_to_agent():
+        pytest.skip("Pageant is running, and paramiko asks it before the ssh-agent service")
+    if not win_openssh.can_talk_to_agent():
+        if openssh.windows:  # windows-openssh-server.py starts the service
+            pytest.fail("Windows' ssh-agent service isn't running")
+        pytest.skip("Windows' ssh-agent service isn't running")
+    # Windows' own ssh-add. Others on the PATH, such as Git for Windows', may use another agent.
+    openssh_dir = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "OpenSSH")
+    ssh_add = os.path.join(openssh_dir, "ssh-add.exe")
+    key = paramiko.Ed25519Key.from_private_key_file(openssh.key)
+    public = tmp_path / "agent-key.pub"
+    public.write_text(f"{key.get_name()} {key.get_base64()}\n")
+    subprocess.run([ssh_add, openssh.key], check=True)
+    try:
+        yield
+    finally:
+        # The service keeps the keys it's given, even across restarts, so take this one out.
+        subprocess.run([ssh_add, "-d", str(public)], check=True)
+
+
+def test_allow_agent_with_a_real_ssh_agent(openssh, openssh_connect, fake_home, agent_with_key):
+    cnopts = pysftp.CnOpts(knownhosts=openssh.known_hosts)
+    cnopts.allow_agent = True
+    # No password, and fake_home has no key files, so only the agent can log in.
+    with openssh_connect(password=None, cnopts=cnopts) as sftp:
+        assert sftp.pwd.startswith("/")
 
 
 def test_ssh_config_alias(openssh, fake_home, tmp_path):
