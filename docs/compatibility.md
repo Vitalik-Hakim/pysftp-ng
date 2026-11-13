@@ -33,8 +33,12 @@ differ:
 - **`execute()`** runs commands with `cmd.exe`, so lines end in `\r\n`.
 - **A symlink to a folder** is removed with `rmdir()`, not `remove()`.
 
-From a Windows client, paramiko's `ProxyCommand` doesn't work: see the `sock` option in
-[Connection options](options.md).
+From a Windows client:
+
+- `allow_agent` uses the ssh-agent service that comes with Windows' OpenSSH, and CI tests it.
+- paramiko's `ProxyCommand` doesn't work.
+
+See the `allow_agent` and `sock` options in [Connection options](options.md).
 
 ## Support policy
 

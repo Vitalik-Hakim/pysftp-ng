@@ -13,6 +13,9 @@ API.
   Users group. CI now runs the real-server tests against it, from a Windows client.
 - The `ssh_config` option's docs warn that paramiko expands every `~` in an `IdentityFile`, so a
   path with a `~` inside it, such as a Windows short name, points somewhere else.
+- The `allow_agent` option's docs say which agent paramiko uses on Windows, where it ignores
+  `SSH_AUTH_SOCK`. CI now tests the option with the ssh-agent service that comes with Windows'
+  OpenSSH.
 
 ## 0.4.2 (2026-11-12)
 

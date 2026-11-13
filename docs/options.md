@@ -76,6 +76,11 @@ Like every key, agent keys are offered only after the server's host key has been
 a key tells the server you hold it, which is why this is off by default. pysftp-ng closes its
 connection to the agent once the login is done, and never forwards the agent to the server.
 
+On Windows, paramiko doesn't read `SSH_AUTH_SOCK`. It asks Pageant if that's running, and otherwise
+the ssh-agent service that comes with Windows' OpenSSH. The service is disabled by default:
+Microsoft's [key management guide](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_keymanagement)
+shows how to start it and add your keys with `ssh-add`.
+
 ## ssh_config
 
 `cnopts.ssh_config` reads four settings for the host from an OpenSSH config file: `HostName`,
